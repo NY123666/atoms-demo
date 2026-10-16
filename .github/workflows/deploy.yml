@@ -36,7 +36,19 @@ jobs:
       # 与本地 `npm run verify` 同样的关卡，顺序也一样。
       - run: npm run typecheck
       - run: npm run smoke
+      # 托管代理这两关是纯 Node + 回环地址（真 HTTP、真 SSE，但不碰浏览器），
+      # 所以在 CI 里是**硬关卡**：代理是唯一会花钱、也唯一碰密钥的组件，
+      # 它要是回归了，宁可这次不发版。
+      - run: npm run smoke:hosted
+      - run: npm run smoke:hosted-client
+
+      # 部署形态决定前端能不能找到托管代理。
+      # 在本仓库 Settings → Variables 里加一个 VITE_HOSTED_BASE_URL 指向代理地址
+      # （例如 https://forge-hosted.vercel.app），静态站和代理不同域时就不用改代码；
+      # 没配的话前端会自动试同源的 /api，代理没部署时这个选项根本不会露出来。
       - run: npm run build
+        env:
+          VITE_HOSTED_BASE_URL: ${{ vars.VITE_HOSTED_BASE_URL }}
 
       # 后三关需要无头 Chromium（GitHub 的 ubuntu 镜像自带 Chrome）。
       # 万一镜像里没有浏览器，脚本会自己跳过并警告——这里再兜一层 continue-on-error，

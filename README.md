@@ -45,7 +45,9 @@ npm run build        # 然后把 dist/ 整个目录丢给任意静态托管即�
 npm run preview      # 本地模拟线上形态（http://localhost:4173）
 ```
 
-本仓库带了一个 `.github/workflows/deploy.yml`：推到 GitHub 后在仓库 **Settings → Pages** 把 Source 选成 **GitHub Actions**，之后每次 push 都会自动构建并更新线上地址（构建前会跑类型检查和冒烟测试，跑不过就不发布）。这条路径不需要任何本地部署工具链。
+本仓库带了一个 `.github/workflows/deploy.yml`：推到 GitHub 后在仓库 **Settings → Pages** 把 Source 选成 **GitHub Actions**，之后每次 push 都会自动构建并更新线上地址（构建前会跑类型检查、离线冒烟和**两套托管代理测试**——代理是唯一碰密钥、也唯一会花钱的组件，它回归了宁可这次不发版）。这条路径不需要任何本地部署工具链。
+
+代理和静态站不同域时（比如静态站在 Pages、代理在 Vercel），在仓库 **Settings → Variables** 里加一个 `VITE_HOSTED_BASE_URL` 指向代理地址即可，workflow 会把它传进构建。不配也不会错：前端会自动试同源的 `/api`，探不到就不把「托管模型」这个选项露出来。
 
 ### 想让访客零配置就用上真模型：再部署一个托管代理
 
