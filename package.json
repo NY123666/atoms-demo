@@ -1,0 +1,28 @@
+{
+  "name": "atoms-demo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A natural-language to runnable-web-app workbench. Describe an app, get a real, runnable web app.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 4173 --host",
+    "typecheck": "tsc --noEmit",
+    "smoke": "esbuild scripts/smoke.ts --bundle --platform=node --format=esm --target=node20 --log-level=warning --outfile=.tmp/smoke.mjs && node .tmp/smoke.mjs",
+    "smoke:dom": "esbuild scripts/browser-check.ts --bundle --platform=node --format=esm --target=node20 --log-level=warning --outfile=.tmp/browser-check.mjs && node .tmp/browser-check.mjs",
+    "verify": "npm run typecheck && npm run smoke && npm run smoke:dom && npm run smoke:dist",
+    "smoke:dist": "esbuild scripts/serve-check.ts --bundle --platform=node --format=esm --target=node20 --log-level=warning --outfile=.tmp/serve-check.mjs && node .tmp/serve-check.mjs"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}
