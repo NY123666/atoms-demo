@@ -9,10 +9,12 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 4173 --host",
     "typecheck": "tsc --noEmit",
+    "single": "vite build && npm run smoke:single",
     "smoke": "esbuild scripts/smoke.ts --bundle --platform=node --format=esm --target=node20 --log-level=warning --outfile=.tmp/smoke.mjs && node .tmp/smoke.mjs",
     "smoke:dom": "esbuild scripts/browser-check.ts --bundle --platform=node --format=esm --target=node20 --log-level=warning --outfile=.tmp/browser-check.mjs && node .tmp/browser-check.mjs",
-    "verify": "npm run typecheck && npm run smoke && npm run smoke:dom && npm run smoke:dist",
-    "smoke:dist": "esbuild scripts/serve-check.ts --bundle --platform=node --format=esm --target=node20 --log-level=warning --outfile=.tmp/serve-check.mjs && node .tmp/serve-check.mjs"
+    "smoke:single": "esbuild scripts/standalone.ts --bundle --platform=node --format=esm --target=node20 --log-level=warning --outfile=.tmp/mk-standalone.mjs && node .tmp/mk-standalone.mjs",
+    "smoke:dist": "esbuild scripts/serve-check.ts --bundle --platform=node --format=esm --target=node20 --log-level=warning --outfile=.tmp/serve-check.mjs && node .tmp/serve-check.mjs",
+    "verify": "npm run typecheck && npm run smoke && vite build && npm run smoke:dom && npm run smoke:dist && npm run smoke:single"
   },
   "dependencies": {
     "react": "^18.3.1",

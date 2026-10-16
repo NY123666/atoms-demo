@@ -38,12 +38,16 @@ jobs:
       - run: npm run smoke
       - run: npm run build
 
-      # 后两关需要无头 Chromium（GitHub 的 ubuntu 镜像自带 Chrome）。
+      # 后三关需要无头 Chromium（GitHub 的 ubuntu 镜像自带 Chrome）。
       # 万一镜像里没有浏览器，脚本会自己跳过并警告——这里再兜一层 continue-on-error，
       # 让"CI 环境的浏览器差异"永远不至于挡住发布这条主线。
       - run: npm run smoke:dom
         continue-on-error: true
       - run: npm run smoke:dist
+        continue-on-error: true
+      # 这一关会把单文件版也写进 dist，于是线上多出一个
+      # /<repo>/forge-standalone.html：可以直接下载、双击打开的那一个文件。
+      - run: npm run smoke:single
         continue-on-error: true
 
       - uses: actions/configure-pages@v5
