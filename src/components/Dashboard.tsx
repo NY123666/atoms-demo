@@ -3,7 +3,8 @@ import Composer from './Composer'
 import { DEMO_SHOWCASE } from '../lib/demoEngine'
 import { deriveTitle } from '../lib/intent'
 import { createProject, useStore, deleteProject, toggleStar, duplicateProject } from '../lib/store'
-import { findProvider } from '../lib/providers'
+import { HOSTED_PROVIDER_ID, findProvider } from '../lib/providers'
+import { useHosted } from '../lib/hosted'
 import { setHandoff } from '../lib/handoff'
 import { go } from '../lib/router'
 import { timeAgo } from '../lib/format'
@@ -12,6 +13,7 @@ import { IconBolt, IconCode, IconLayers, IconPlus, IconRefresh, IconSettings, Ic
 
 export default function Dashboard() {
   const { projects, settings } = useStore()
+  const hosted = useHosted()
   const [draft, setDraft] = useState('')
   const provider = findProvider(settings.activeProviderId)
   const recent = [...projects].sort((a, b) => Number(b.starred) - Number(a.starred) || b.updatedAt - a.updatedAt)
@@ -34,6 +36,14 @@ export default function Dashboard() {
           </span>
           {settings.activeProviderId === 'demo' ? (
             <span className="pill">无需 API Key，开箱即测</span>
+          ) : settings.activeProviderId === HOSTED_PROVIDER_ID ? (
+            // 把剩余额度放在首屏：访客不用点进设置就知道"这个还能用几次"，
+            // 额度见底时也有心理预期，而不是生成到一半突然被拒。
+            <span className="pill">
+              <IconBolt size={13} />
+              {`本站付费调用 ${hosted.model ?? '真模型'}`}
+              {typeof hosted.remainingForYou === 'number' ? `，你今天还剩 ${hosted.remainingForYou} 次` : ''}
+            </span>
           ) : (
             <span className="pill">Key 只存在你的浏览器里</span>
           )}

@@ -54,13 +54,24 @@ export interface ProviderSettings {
 }
 
 export interface Settings {
-  /** 当前使用的服务商 id，'demo' 表示内置演示引擎 */
+  /** 当前使用的服务商 id，'demo' 表示内置演示引擎，'hosted' 表示本站托管的模型 */
   activeProviderId: string
   providers: Record<string, ProviderSettings>
   theme: 'dark' | 'light'
   autoFix: boolean
   /** 生成时是否打字机式流式输出 */
   streamDemo: boolean
+  /**
+   * 托管代理的地址覆盖（''=自动探测）。
+   * 只在"自己部署代理"或"代理和静态站不同源"时需要填；普通访客永远用不到这一项。
+   */
+  hostedBase: string
+  /**
+   * 用户有没有**亲手**选过引擎。
+   * 只有 false 时才会在探测到托管代理可用后自动切过去 —— 一旦用户自己点过「设为当前引擎」，
+   * 就再也不能替他改，否则"我刚选的演示引擎怎么又被换回去了"。
+   */
+  providerChosen: boolean
 }
 
 export interface ProviderDef {

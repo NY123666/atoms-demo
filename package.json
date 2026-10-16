@@ -11,10 +11,13 @@
     "typecheck": "tsc --noEmit",
     "single": "vite build && npm run smoke:single",
     "smoke": "esbuild scripts/smoke.ts --bundle --platform=node --format=esm --target=node20 --log-level=warning --outfile=.tmp/smoke.mjs && node .tmp/smoke.mjs",
+    "hosted:dev": "node server/dev.mjs",
+    "smoke:hosted": "esbuild scripts/hosted-check.ts --bundle --platform=node --format=esm --target=node20 --log-level=warning --outfile=.tmp/hosted-check.mjs && node .tmp/hosted-check.mjs",
+    "smoke:hosted-client": "esbuild scripts/hosted-client-check.ts --bundle --platform=node --format=esm --target=node20 --log-level=warning --outfile=.tmp/hosted-client-check.mjs && node .tmp/hosted-client-check.mjs",
     "smoke:dom": "esbuild scripts/browser-check.ts --bundle --platform=node --format=esm --target=node20 --log-level=warning --outfile=.tmp/browser-check.mjs && node .tmp/browser-check.mjs",
     "smoke:single": "esbuild scripts/standalone.ts --bundle --platform=node --format=esm --target=node20 --log-level=warning --outfile=.tmp/mk-standalone.mjs && node .tmp/mk-standalone.mjs",
     "smoke:dist": "esbuild scripts/serve-check.ts --bundle --platform=node --format=esm --target=node20 --log-level=warning --outfile=.tmp/serve-check.mjs && node .tmp/serve-check.mjs",
-    "verify": "npm run typecheck && npm run smoke && vite build && npm run smoke:dom && npm run smoke:dist && npm run smoke:single"
+    "verify": "npm run typecheck && npm run smoke && npm run smoke:hosted && npm run smoke:hosted-client && vite build && npm run smoke:dom && npm run smoke:dist && npm run smoke:single"
   },
   "dependencies": {
     "react": "^18.3.1",

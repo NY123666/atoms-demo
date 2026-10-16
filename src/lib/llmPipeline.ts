@@ -1,8 +1,9 @@
 import type { GenStep, GenStepState } from '../types'
+import { getHostedStatus } from './hosted'
 import { deriveTitle } from './intent'
 import { streamChat } from './llm'
 import { buildGeneratePrompt, buildIteratePrompt, SYSTEM_PROMPT } from './prompt'
-import { findProvider } from './providers'
+import { HOSTED_PROVIDER_ID, findProvider } from './providers'
 import { checkRunnable, extractHtml } from './sandbox'
 import type { NewVersion, GenerateParams } from './generate'
 
@@ -58,11 +59,37 @@ export async function runLlmGeneration(p: LlmPipelineParams): Promise<NewVersion
   const providerId = settings.activeProviderId
   const provider = findProvider(providerId)
   const stored = settings.providers[providerId]
-  const apiKey = stored?.apiKey?.trim() ?? ''
-  const baseUrl = (stored?.baseUrl?.trim() || provider.baseUrl).trim()
-  const model = (stored?.model?.trim() || provider.models[0] || '').trim()
+  const isHosted = providerId === HOSTED_PROVIDER_ID
+  const hosted = getHostedStatus()
 
-  if (!apiKey) {
+  /*
+   * 托管模式和自带 Key 的唯一区别就在这三行：
+   * baseUrl 指向代理而不是服务商，apiKey 是空的（Key 在服务端），model 以服务端回报的为准。
+   * 下面的抽取 / 自检 / 自动修复整条流水线完全复用 —— 这也是当初全部走 OpenAI 兼容协议换来的。
+   */
+  const apiKey = isHosted ? '' : (stored?.apiKey?.trim() ?? '')
+  const baseUrl = isHosted ? hosted.chatBase : (stored?.baseUrl?.trim() || provider.baseUrl).trim()
+  // 托管模式下模型名由服务端决定（前端传什么都可能被代理改写），所以以探测结果为唯一来源
+  const model = (isHosted ? (hosted.model ?? '') : stored?.model?.trim() || provider.models[0] || '').trim()
+
+  if (isHosted) {
+    /*
+     * 探测结论已经明确说"这场用不了"（额度用完 / 站长没配上游 Key）时，直接把这句人话抛出去，
+     * 不先把请求打到代理上换一个 429 回来。理由有两个：
+     *   1) 那一次往返是白花的 —— 而且如果只是"全站额度被用光"，它本来就不会成功；
+     *   2) 429 的错误体要再绕一层（llm.ts 的 `模型服务返回 429：…`）才有人话，文案比这里差。
+     * 注意只拦这两种**已知的**降级：unknown/checking 是"还没探完"，那时放行更安全 ——
+     * 用户可能在开机探测结束前就点了生成，凭一个"还没探"把它拦下来会变成莫名其妙的失败。
+     */
+    if (hosted.state === 'exhausted' || hosted.state === 'unconfigured') {
+      throw new Error(
+        `${hosted.message} 可以在右上角「模型设置」里切换到内置演示引擎或自带 Key 的模型，也可以过一会儿再试。`,
+      )
+    }
+    if (!baseUrl) {
+      throw new Error('托管代理当前不可用。请在右上角「模型设置」里重新检测，或切回内置演示引擎。')
+    }
+  } else if (!apiKey) {
     throw new Error(`还没配置「${provider.name}」的 API Key。请在右上角「模型设置」里填写，或切回内置演示引擎。`)
   }
 

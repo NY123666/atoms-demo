@@ -74,11 +74,38 @@ export const DEMO_PROVIDER: ProviderDef = {
   hint: '不需要任何 API Key。用内置模板库直接生成可运行的真实应用，开箱即测。',
 }
 
+/** 托管模式：产品方出钱、访客零配置。没有 keyUrl —— 因为访客根本不需要填 Key。 */
+export const HOSTED_PROVIDER_ID = 'hosted'
+
+export const HOSTED_PROVIDER: ProviderDef = {
+  id: HOSTED_PROVIDER_ID,
+  name: '托管模型',
+  baseUrl: '', // 真实地址由探测结果决定（见 lib/hosted.ts），不是写死的
+  models: [], // 模型名以服务端为准，前端只负责显示
+  keyUrl: '',
+  hint: '由本站付费调用真模型，访客不需要任何 API Key，也不需要注册。每天有公开额度上限。',
+}
+
 export function findProvider(id: string): ProviderDef {
   if (id === DEMO_PROVIDER_ID) return DEMO_PROVIDER
+  if (id === HOSTED_PROVIDER_ID) return HOSTED_PROVIDER
   return PROVIDERS.find((p) => p.id === id) ?? DEMO_PROVIDER
 }
 
+/**
+ * 只列"永远存在"的引擎：内置演示引擎 + 7 家可自带 Key 的服务商。
+ * 托管模型不在这里 —— 它可能存在也可能不存在（取决于有没有部署代理），
+ * 由界面按探测结果**条件插入**（见 SettingsDialog）。
+ * 把不确定存在的东西放进这个列表，就会在没部署代理的站上给访客一个点了必然失败的选项。
+ */
 export function allProviders(): ProviderDef[] {
   return [DEMO_PROVIDER, ...PROVIDERS]
+}
+
+/**
+ * 设置窗口要显示的引擎列表。
+ * 托管模型排在内置演示引擎后面（都是"零配置"选项，放一起），自带 Key 的家排在后面。
+ */
+export function providerChoices(includeHosted: boolean): ProviderDef[] {
+  return includeHosted ? [DEMO_PROVIDER, HOSTED_PROVIDER, ...PROVIDERS] : allProviders()
 }

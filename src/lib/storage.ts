@@ -23,6 +23,8 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: 'dark',
   autoFix: true,
   streamDemo: true,
+  hostedBase: '',
+  providerChosen: false,
 }
 
 function readEnvelope<T>(key: string): T | null {

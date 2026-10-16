@@ -47,7 +47,13 @@ export async function streamChat(opts: StreamOptions): Promise<LlmResult> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${opts.apiKey}`,
+        /*
+         * 没有 Key 就**不带** Authorization 头。
+         * 托管模式（产品方出钱）走的就是这条：Key 在服务端的代理进程里，
+         * 浏览器这边完全没有 Key —— 这里如果发一个 `Bearer `（空 Key），
+         * 代理那一层会把它当成"访客带了错的凭证"，问题看上去就变成了"托管模式的 Key 是错的"。
+         */
+        ...(opts.apiKey ? { Authorization: `Bearer ${opts.apiKey}` } : {}),
       },
       body: JSON.stringify({
         model: opts.model,
@@ -135,7 +141,8 @@ export async function testConnection(input: {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${input.apiKey}`,
+        // 同 streamChat：托管模式没有 Key，就不带这个头（见上面的说明）
+        ...(input.apiKey ? { Authorization: `Bearer ${input.apiKey}` } : {}),
       },
       body: JSON.stringify({
         model: input.model,
