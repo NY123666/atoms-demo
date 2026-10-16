@@ -832,6 +832,27 @@ pre {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+/* 「下一步可以加」：建议跟着当前这一版的实际能力变，已有的一律不推荐 */
+.next-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-start;
+}
+
+.next-label {
+  color: var(--muted-2);
+  font-size: 11px;
+  letter-spacing: .2px;
+}
+
+.next-note {
+  color: var(--muted-2);
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 /* -------------------------------- 工作台 -------------------------------- */

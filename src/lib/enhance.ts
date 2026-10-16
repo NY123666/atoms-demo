@@ -70,6 +70,58 @@ export interface EnhanceResult {
   fallback: boolean
 }
 
+/**
+ * 界面上「下一步可以加什么」用的措辞。
+ * 和 `keywords` 是两件事：keywords 是**理解用户说了什么**，这里是**替用户把话说出来**。
+ * 每条都必须能被 `planEnhancements` 命中，否则点了不会生效 —— 冒烟测试把这条钉住了。
+ */
+const SUGGEST_PROMPTS: Record<string, string> = {
+  search: '加一个搜索框，能按关键词过滤列表',
+  export: '支持导出成 JSON 文件',
+  chart: '把列表里的数值用柱状图统计出来',
+  dark: '再加一个暗色主题切换',
+}
+
+export interface EnhanceSuggestion {
+  id: string
+  label: string
+  /** 点一下填进输入框的那句话 */
+  prompt: string
+}
+
+export interface EnhanceOverview {
+  /** 这一版已经有的通用能力（用来告诉用户"为什么建议变少了"） */
+  have: string[]
+  /** 这一版还没有、因此值得推荐的（点了真的能挂上） */
+  suggest: EnhanceSuggestion[]
+}
+
+/**
+ * 读一版产物，算出「已经有什么」和「下一步能加什么」。
+ *
+ * 和 `applyEnhancements` 走**同一套**判定（`capabilityHaystack` + `injectedFeatures`），
+ * 这一点是刻意的：如果这里用"有没有看见这几个字"来判，工具条上那个写着「导出 JSON」的按钮
+ * 会让界面以为产物自带导出能力，于是它**建议过了、却永远挂不上**——
+ * 那正是这套代码早先踩过的坑，不能换个地方再踩一遍。
+ */
+export function analyzeEnhancements(html: string | null | undefined): EnhanceOverview {
+  const source = html ?? ''
+  const hasSource = source.trim().length > 0
+  const haystack = hasSource ? capabilityHaystack(source) : ''
+  const injected = hasSource ? injectedFeatures(source) : new Set<string>()
+  const have: string[] = []
+  const suggest: EnhanceSuggestion[] = []
+  for (const e of CATALOG) {
+    if (injected.has(e.id) || e.present.test(haystack)) {
+      have.push(e.label)
+      continue
+    }
+    const prompt = SUGGEST_PROMPTS[e.id]
+    if (prompt) suggest.push({ id: e.id, label: e.label, prompt })
+  }
+  return { have, suggest }
+}
+
 const TOOLBAR_CSS = [
   '.__forge_bar{position:sticky;top:0;z-index:2147483000;display:flex;flex-wrap:wrap;gap:8px;align-items:center;',
   'padding:8px 12px;background:rgba(12,14,24,.82);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,.12);',

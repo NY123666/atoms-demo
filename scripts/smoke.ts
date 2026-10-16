@@ -11,7 +11,7 @@
  */
 
 import { DEMO_SHOWCASE, generateDemo, describeTarget } from '../src/lib/demoEngine'
-import { applyEnhancements } from '../src/lib/enhance'
+import { analyzeEnhancements, applyEnhancements, planEnhancements } from '../src/lib/enhance'
 import { checkRunnable, extractHtml, instrument, SANDBOX_ATTRS } from '../src/lib/sandbox'
 import { decodeShare, encodeShare } from '../src/lib/share'
 import { buildGeneratePrompt, buildIteratePrompt, SYSTEM_PROMPT } from '../src/lib/prompt'
@@ -116,6 +116,59 @@ async function main(): Promise<void> {
   ok('迭代说明写清做了什么', v2.note.includes('新增') && v2.note.includes('上一版'))
   ok('未点名功能的迭代仍有可见变化', v1.html !== generateDemo('随便改改', 1, v1.html).html)
   ok('未点名功能时如实说明', generateDemo('随便改改', 1, v1.html).note.includes('未识别到'))
+
+  /* 界面上的「下一步可以加」：建议必须跟着这一版的实际能力走。
+     除了"该不该推荐"，这里还钉住另一件事：**推荐了就一定要真的挂得上** ——
+     摆一个点了没反应的按钮，比不推荐更糟。 */
+  const ovEmpty = analyzeEnhancements(null)
+  ok('还没有产物时：四项都算"还没有"', ovEmpty.have.length === 0 && ovEmpty.suggest.length === 4)
+  ok(
+    '每条建议的措辞都能被 planEnhancements 认出（点了真的会生效）',
+    ovEmpty.suggest.every((s) => planEnhancements(s.prompt).some((e) => e.id === s.id)),
+    JSON.stringify(ovEmpty.suggest.map((s) => [s.id, planEnhancements(s.prompt).map((e) => e.id)])),
+  )
+  const ovFirst = analyzeEnhancements(v1.html)
+  ok(
+    '首版建议的就是全部四项（模板注释里提到过这些能力，不算数）',
+    ovFirst.have.length === 0 && ovFirst.suggest.length === 4,
+    JSON.stringify(ovFirst.have),
+  )
+  const ovSearch = analyzeEnhancements(v2.html)
+  ok(
+    '已经挂过搜索框之后：不再推荐搜索框',
+    !ovSearch.suggest.some((s) => s.id === 'search') && ovSearch.have.includes('搜索筛选框'),
+    JSON.stringify(ovSearch),
+  )
+  /* 这一条是给"被自己的痕迹骗到"那个老坑设的第二道岗：
+     v2all 的产物里四个都注入过，工具条按钮上还明晃晃写着「导出 JSON」，
+     界面要是靠"看见这几个字"来判，就会建议过了却永远挂不上。 */
+  const ovAll = analyzeEnhancements(v2all)
+  ok(
+    '四项全挂上后一条都不再推荐（不被工具条的按钮文案骗到）',
+    ovAll.suggest.length === 0 && ovAll.have.length === 4,
+    JSON.stringify(ovAll.suggest.map((s) => s.id)),
+  )
+
+  /* 推荐 → 点下去 → 真的长出来：从首版开始一路照建议走，四步之后不该再有可推荐的。
+     万一哪天"判定"和"注入"两边不一致（推荐了却挂不上），这个循环就转不完，
+     上限本身就是断言。 */
+  let cur = v1.html
+  let rounds = 0
+  const accepted: string[] = []
+  const missed: string[] = []
+  while (rounds < 8) {
+    const next = analyzeEnhancements(cur).suggest[0]
+    if (!next) break
+    const res = applyEnhancements(cur, next.prompt, rounds + 1)
+    if (res.applied.length !== 1) missed.push(`${next.id} → applied=${JSON.stringify(res.applied)} skipped=${JSON.stringify(res.skipped)}`)
+    accepted.push(next.id)
+    cur = res.html
+    rounds += 1
+  }
+  ok('一路照建议点下去，四步正好补完四项', rounds === 4 && accepted.length === 4, `轮数=${rounds} 顺序=${accepted.join(' → ')}`)
+  ok('每一轮建议都真的挂上了（没有点了没反应的按钮）', missed.length === 0, missed.join('；'))
+  ok('四项补完之后不再有建议', analyzeEnhancements(cur).suggest.length === 0)
+  ok('照建议补完的产物依然可运行', checkRunnable(cur).ok, checkRunnable(cur).reasons.join('；'))
 
   // 每种模板迭代一次，确认增强后的产物依然过自检
   for (const item of DEMO_SHOWCASE) {

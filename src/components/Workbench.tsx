@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import ChatPanel from './ChatPanel'
 import PreviewPane from './PreviewPane'
 import CodePane from './CodePane'
@@ -14,6 +14,7 @@ import { copyText, formatBytes, formatDuration } from '../lib/format'
 import { buildShareUrl, encodeShare, downloadHtml, SHARE_WARN_LENGTH } from '../lib/share'
 import { toast } from '../lib/toast'
 import { checkRunnable } from '../lib/sandbox'
+import { analyzeEnhancements } from '../lib/enhance'
 import type { GenStepState, SharePayload } from '../types'
 import { IconBack, IconCode, IconDownload, IconHistory, IconPlay, IconShare, IconSpark } from './Icons'
 
@@ -70,6 +71,9 @@ export default function Workbench({ projectId }: { projectId: string }) {
     versions.find((v) => v.id === project?.currentVersionId) ?? versions[versions.length - 1] ?? null
 
   const provider = findProvider(state.settings.activeProviderId)
+
+  /* 当前这一版已经有了哪些通用能力、下一步还能加什么（跟着回滚/切版本一起变）。 */
+  const enhanceOverview = useMemo(() => analyzeEnhancements(currentVersion?.html), [currentVersion?.html])
 
   /* ------------------------------ 沙箱消息桥 ------------------------------ */
   useEffect(() => {
@@ -285,6 +289,7 @@ export default function Workbench({ projectId }: { projectId: string }) {
               setCurrentVersion(project.id, id)
               setTab('preview')
             }}
+            overview={enhanceOverview}
           />
         </section>
 
