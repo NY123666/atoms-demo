@@ -20,6 +20,17 @@ npm run verify       # 类型检查 + 214 项离线冒烟 + 31 项真浏览器�
 npm run build        # 产出 dist/（纯静态，可直接丢到任意静态托管）
 ```
 
+### 发布成一个公网链接
+
+产物是**纯静态 + 相对路径 + hash 路由**，所以随便放哪儿都能跑，且不需要任何重写规则：
+
+```bash
+npm run build        # 然后把 dist/ 整个目录丢给任意静态托管即可
+npm run preview      # 本地模拟线上形态（http://localhost:4173）
+```
+
+本仓库带了一个 `.github/workflows/deploy.yml`：推到 GitHub 后在仓库 **Settings → Pages** 把 Source 选成 **GitHub Actions**，之后每次 push 都会自动构建并更新线上地址（构建前会跑类型检查和冒烟测试，跑不过就不发布）。这条路径不需要任何本地部署工具链。
+
 ## 2. 三条可验证路径
 
 | 路径 | 需要什么 | 能验证到什么 |

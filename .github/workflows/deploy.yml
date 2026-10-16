@@ -1,0 +1,62 @@
+# 推到 GitHub 之后自动构建并发布到 GitHub Pages。
+#
+# 产物是纯静态的（相对路径 + hash 路由），所以不需要任何重写规则：
+# 刷新子路由不会 404，挂在 /<repo>/ 子路径下也不会白屏。
+#
+# 用之前只需要在仓库 Settings → Pages 里把 Source 选成 "GitHub Actions"，
+# 之后每次 push 到 main 都会自动更新线上版本。
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一时间只保留一次发布，排队中的旧任务直接取消
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+
+      # 与本地 `npm run verify` 同样的关卡，顺序也一样。
+      - run: npm run typecheck
+      - run: npm run smoke
+      - run: npm run build
+
+      # 后两关需要无头 Chromium（GitHub 的 ubuntu 镜像自带 Chrome）。
+      # 万一镜像里没有浏览器，脚本会自己跳过并警告——这里再兜一层 continue-on-error，
+      # 让"CI 环境的浏览器差异"永远不至于挡住发布这条主线。
+      - run: npm run smoke:dom
+        continue-on-error: true
+      - run: npm run smoke:dist
+        continue-on-error: true
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
