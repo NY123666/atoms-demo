@@ -1,0 +1,4 @@
+# 单文件版是"发出去就能用"的交付物，必须逐字节稳定：
+# 关掉换行转换，否则别人 clone 出来的文件和我验证过的不是同一串字节。
+# （本机 core.autocrlf=true，不写这条的话 checkout 会把 LF 换成 CRLF。）
+forge-standalone.html -text
