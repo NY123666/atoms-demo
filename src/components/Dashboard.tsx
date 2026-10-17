@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Composer from './Composer'
+import ProjectFilters from './ProjectFilters'
 import { DEMO_SHOWCASE } from '../lib/demoEngine'
 import { deriveTitle } from '../lib/intent'
 import { createProject, useStore, deleteProject, toggleStar, duplicateProject } from '../lib/store'
@@ -9,14 +10,18 @@ import { setHandoff } from '../lib/handoff'
 import { go } from '../lib/router'
 import { timeAgo } from '../lib/format'
 import { toast } from '../lib/toast'
+import { DEFAULT_QUERY, currentVersionOf, filterProjects, isFiltering, type ProjectQuery } from '../lib/projects'
 import { IconBolt, IconCode, IconLayers, IconPlus, IconRefresh, IconSettings, IconShare, IconStar, IconTrash } from './Icons'
 
 export default function Dashboard() {
   const { projects, settings } = useStore()
   const hosted = useHosted()
   const [draft, setDraft] = useState('')
+  const [query, setQuery] = useState<ProjectQuery>(DEFAULT_QUERY)
   const provider = findProvider(settings.activeProviderId)
-  const recent = [...projects].sort((a, b) => Number(b.starred) - Number(a.starred) || b.updatedAt - a.updatedAt)
+  // 网格和侧边栏共用同一份判定，避免"同一个词在左边搜得到、在右边搜不到"。
+  const rows = useMemo(() => filterProjects(projects, query), [projects, query])
+  const filtering = isFiltering(query)
 
   function start(prompt: string) {
     const text = prompt.trim()
@@ -52,8 +57,8 @@ export default function Dashboard() {
           说一句话，<span className="grad">生成一个能跑的网页应用</span>
         </h1>
         <p className="hero-sub">
-          Forge 把你的需求变成一份可直接交互的单文件应用：真实状态、真实持久化、真实可运行，
-          而不是一段静态截图或伪代码。生成后可以继续用自然语言迭代，也可以一键分享给别人试玩。
+          Forge 把你的需求变成一份能直接运行的单文件应用：真实可交互、数据真的会保存，
+          而不是一段静态截图或伪代码。一句话起头，接下来想怎么改都行。
         </p>
 
         <Composer
@@ -86,14 +91,14 @@ export default function Dashboard() {
             <IconRefresh size={16} />
             <div>
               <strong>对话式迭代</strong>
-              <em>「再加个暗色主题」就能改，每次改动都自动存档可回滚</em>
+              <em>「再加个暗色主题」就能改，每次改动都会自动存档，随时能回退</em>
             </div>
           </div>
           <div className="feature">
             <IconShare size={16} />
             <div>
               <strong>免服务器分享</strong>
-              <em>整份产物压缩进链接里，对方打开即玩</em>
+              <em>整份产物打包进一条链接，对方打开就能玩</em>
             </div>
           </div>
         </div>
@@ -125,14 +130,32 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {recent.length === 0 ? (
+        {/* 一个应用都没有时不摆检索条：没有东西可筛，先让人去创建。 */}
+        {projects.length > 0 ? (
+          <ProjectFilters
+            value={query}
+            onChange={(patch) => setQuery((q) => ({ ...q, ...patch }))}
+            shown={rows.length}
+            total={projects.length}
+            filtering={filtering}
+          />
+        ) : null}
+
+        {projects.length === 0 ? (
           <div className="empty">
             <p>还没有应用。上面写一句需求，或者点一个示例试试。</p>
           </div>
+        ) : rows.length === 0 ? (
+          <div className="empty">
+            <p>没有匹配的应用。</p>
+            <button className="btn btn-ghost btn-sm" onClick={() => setQuery(DEFAULT_QUERY)} type="button">
+              清除筛选（共 {projects.length} 个）
+            </button>
+          </div>
         ) : (
           <div className="card-grid">
-            {recent.map((p) => {
-              const current = p.versions.find((v) => v.id === p.currentVersionId) ?? p.versions[p.versions.length - 1]
+            {rows.map(({ project: p, hit }) => {
+              const current = currentVersionOf(p)
               return (
                 <article key={p.id} className="project-card" onClick={() => go(`/p/${p.id}`)}>
                   <div className="pc-top">
@@ -150,6 +173,12 @@ export default function Dashboard() {
                     </button>
                   </div>
                   <p className="pc-desc">{current?.prompt ?? '还没有生成过内容'}</p>
+                  {/* 命中的是卡片上已经看得见的那句就不提示；命中别处才说明它为什么被搜到。 */}
+                  {hit ? (
+                    <p className="pc-hit" title={hit.text}>
+                      匹配{hit.versionIndex === null ? '你说过的话' : ` v${hit.versionIndex}`}：{hit.text}
+                    </p>
+                  ) : null}
                   <div className="pc-meta">
                     <span>{p.versions.length} 个版本</span>
                     <span>·</span>

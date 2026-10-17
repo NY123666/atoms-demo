@@ -1,11 +1,12 @@
 /**
  * 冒烟测试：不开浏览器，直接把生成链路里"不依赖 DOM"的部分跑一遍。
  *
- * 覆盖四件事：
+ * 覆盖五件事：
  * 1. 演示引擎（不填 Key 就能用的那条路）对全部示例需求 + 若干边界输入都能产出可运行 HTML；
  * 2. 生成物的静态自检 checkRunnable 真的能拦住坏产物（不能只会说 ok）；
  * 3. extractHtml 能从模型常见的几种回包格式里抠出文档；
- * 4. 分享链接的压缩编解码往返无损。
+ * 4. 分享链接的压缩编解码往返无损；
+ * 5. 首页检索/筛选的纯函数判定（和 UI 共用同一份代码，见 lib/projects.ts）。
  *
  * 运行：npm run smoke
  */
@@ -15,7 +16,8 @@ import { analyzeEnhancements, applyEnhancements, planEnhancements } from '../src
 import { checkRunnable, extractHtml, instrument, SANDBOX_ATTRS } from '../src/lib/sandbox'
 import { decodeShare, encodeShare } from '../src/lib/share'
 import { buildGeneratePrompt, buildIteratePrompt, SYSTEM_PROMPT } from '../src/lib/prompt'
-import type { SharePayload } from '../src/types'
+import { DEFAULT_QUERY, currentVersionOf, engineOf, filterProjects, isFiltering } from '../src/lib/projects'
+import type { AppVersion, ChatMessage, GenSource, Project, SharePayload } from '../src/types'
 
 let passed = 0
 const failures: string[] = []
@@ -274,6 +276,143 @@ async function main(): Promise<void> {
   ok('生成提示词带上需求', gp.includes(base.prompt))
   const ip = buildIteratePrompt('加一个暗色主题', goodDoc)
   ok('迭代提示词带上上一版', ip.includes('暗色主题') && ip.length > goodDoc.length - 200)
+
+  console.log('— 附加：首页检索与筛选 —')
+  {
+    const T = 1_700_000_000_000
+    let seq = 0
+    const msg = (role: 'user' | 'assistant', content: string): ChatMessage => ({
+      id: `m${(seq += 1)}`,
+      role,
+      content,
+      createdAt: T + seq,
+    })
+    const ver = (index: number, prompt: string, source: GenSource = 'demo'): AppVersion => ({
+      id: `v${index}-${prompt.replace(/\W/g, '').slice(0, 6) || 'x'}`,
+      index,
+      label: prompt.slice(0, 8),
+      html: '<!doctype html><html><body><script>1</script></body></html>',
+      prompt,
+      createdAt: T + index,
+      durationMs: 12,
+      source,
+      model: source === 'llm' ? 'gpt-x' : undefined,
+    })
+    const proj = (o: {
+      id: string
+      name: string
+      createdAt: number
+      updatedAt: number
+      starred?: boolean
+      messages: ChatMessage[]
+      versions: AppVersion[]
+      current?: number
+    }): Project => ({
+      id: o.id,
+      name: o.name,
+      createdAt: o.createdAt,
+      updatedAt: o.updatedAt,
+      starred: o.starred ?? false,
+      messages: o.messages,
+      versions: o.versions,
+      currentVersionId: o.current === undefined ? null : (o.versions[o.current]?.id ?? null),
+    })
+
+    // 四份存档覆盖：收藏置顶、说了但没生成的那句话、老版本命中、一个版本都没有。
+    const ledger = proj({
+      id: 'p1',
+      name: '记账本',
+      starred: true,
+      createdAt: T + 1,
+      updatedAt: T + 100,
+      messages: [msg('user', '做一个记账本，能按分类汇总'), msg('assistant', '记账本已经生成好了，可以点右侧预览')],
+      versions: [ver(1, '做一个记账本，能按分类汇总')],
+      current: 0,
+    })
+    const pomodoro = proj({
+      id: 'p2',
+      name: '番茄钟',
+      createdAt: T + 2,
+      updatedAt: T + 90,
+      messages: [msg('user', '做一个番茄钟'), msg('assistant', '好了'), msg('user', '顺便加个暗色主题')],
+      versions: [ver(1, '做一个番茄钟')],
+      current: 0,
+    })
+    const habit = proj({
+      id: 'p3',
+      name: 'Habit Tracker',
+      createdAt: T + 3,
+      updatedAt: T + 80,
+      messages: [msg('user', 'Habit tracker with streaks'), msg('user', 'add weekly chart')],
+      versions: [ver(1, 'Habit tracker with streaks'), ver(2, 'add weekly chart', 'llm')],
+      current: 1,
+    })
+    const blank = proj({
+      id: 'p4',
+      name: '空白草稿',
+      createdAt: T + 4,
+      updatedAt: T + 70,
+      messages: [msg('user', '整理一下周报')],
+      versions: [],
+    })
+    const all = [ledger, pomodoro, habit, blank]
+    const ids = (q: Partial<typeof DEFAULT_QUERY>) =>
+      filterProjects(all, { ...DEFAULT_QUERY, ...q }).map((r) => r.project.id)
+    const rowOf = (q: Partial<typeof DEFAULT_QUERY>, id: string) =>
+      filterProjects(all, { ...DEFAULT_QUERY, ...q }).find((r) => r.project.id === id)
+
+    ok('空筛选返回全部', ids({}).length === 4)
+    ok('默认顺序＝收藏置顶 + 最近更新', ids({}).join() === 'p1,p2,p3,p4', ids({}).join())
+    ok('按应用名搜得到', ids({ query: '记账' }).join() === 'p1')
+    ok('应用名命中时不再提示"为什么搜到"', rowOf({ query: '记账' }, 'p1')?.hit === null)
+    ok('应用名搜索不分大小写', ids({ query: 'hAbIt' }).join() === 'p3')
+    ok('按你说过的话搜得到', ids({ query: '番茄钟' }).join() === 'p2')
+    ok('命中的就是卡片上正显示的那句时，不提示', rowOf({ query: '番茄钟' }, 'p2')?.hit === null)
+    ok(
+      '老版本的需求也搜得到，并说清命中在哪一版',
+      rowOf({ query: 'streaks' }, 'p3')?.hit?.versionIndex === 1,
+      JSON.stringify(rowOf({ query: 'streaks' }, 'p3')?.hit),
+    )
+    ok('命中提示给的是原话', (rowOf({ query: 'streaks' }, 'p3')?.hit?.text ?? '').includes('streaks'))
+    ok(
+      '说了但没存档的话：搜得到，但如实说不属于任何版本',
+      rowOf({ query: '暗色主题' }, 'p2')?.hit?.versionIndex === null,
+    )
+    ok('一个版本都没有的应用也能搜到', ids({ query: '周报' }).join() === 'p4')
+    ok('助手消息不当搜索底稿', ids({ query: '生成好' }).length === 0, ids({ query: '生成好' }).join())
+    ok('搜不到就是空的', ids({ query: '这张表不存在' }).length === 0)
+    ok('只看收藏', ids({ starredOnly: true }).join() === 'p1')
+    ok('关键词 + 只看收藏 一起用', ids({ query: '记账', starredOnly: true }).join() === 'p1')
+    ok('关键词 + 引擎筛选 一起用', ids({ query: '番茄钟', engine: 'model' }).length === 0)
+
+    ok('引擎＝演示', ids({ engine: 'demo' }).join() === 'p1,p2')
+    ok('引擎＝真模型', ids({ engine: 'model' }).join() === 'p3')
+    ok('引擎＝还没生成', ids({ engine: 'empty' }).join() === 'p4')
+    ok('engineOf 跟着当前版走', engineOf(habit) === 'model' && engineOf(ledger) === 'demo' && engineOf(blank) === 'empty')
+
+    ok('当前版＝选中的那一版', currentVersionOf(habit)?.index === 2)
+    ok('没选中时退回最后一版', currentVersionOf(ledger)?.index === 1)
+    ok('没有版本时是 undefined', currentVersionOf(blank) === undefined)
+
+    ok('排序＝创建时间（新的在前）', ids({ sort: 'created' }).join() === 'p4,p3,p2,p1')
+    const byVersions = ids({ sort: 'versions' })
+    ok('排序＝版本数（多的在前）', byVersions[0] === 'p3', byVersions.join())
+    ok('显式排序时收藏不再插队', byVersions.join() === 'p3,p1,p2,p4', byVersions.join())
+    const names = filterProjects(all, { ...DEFAULT_QUERY, sort: 'name' }).map((r) => r.project.name)
+    ok(
+      '排序＝名称（按本地语言的升序）',
+      names.every((n, i) => i === 0 || names[i - 1]!.localeCompare(n, 'zh-CN') <= 0),
+      names.join(' > '),
+    )
+    ok('排序不丢项', names.length === 4 && ids({ sort: 'name' }).length === 4)
+    const before = all.map((p) => p.id).join()
+    filterProjects(all, { ...DEFAULT_QUERY, sort: 'name', query: '记账' })
+    ok('筛选不改动原始数组', all.map((p) => p.id).join() === before)
+
+    ok('没动筛选时不算"正在筛选"', !isFiltering(DEFAULT_QUERY))
+    ok('只输入空白不算筛选', !isFiltering({ ...DEFAULT_QUERY, query: '   ' }))
+    ok('搜索 / 只看收藏 / 引擎 都算正在筛选', isFiltering({ ...DEFAULT_QUERY, query: 'a' }) && isFiltering({ ...DEFAULT_QUERY, starredOnly: true }) && isFiltering({ ...DEFAULT_QUERY, engine: 'empty' }))
+  }
 
   const total = passed + failures.length
   console.log('')

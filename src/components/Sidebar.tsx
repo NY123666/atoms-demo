@@ -7,6 +7,7 @@ import {
   useStore,
 } from '../lib/store'
 import { findProvider } from '../lib/providers'
+import { DEFAULT_QUERY, filterProjects, type ProjectQuery } from '../lib/projects'
 import { go } from '../lib/router'
 import { timeAgo } from '../lib/format'
 import { toast } from '../lib/toast'
@@ -18,18 +19,16 @@ interface SidebarProps {
 
 export default function Sidebar({ activeProjectId }: SidebarProps) {
   const { projects, settings, persistError } = useStore()
-  const [query, setQuery] = useState('')
-  const [starOnly, setStarOnly] = useState(false)
+  // 侧边栏只用到"关键词 + 收藏"两档，其余筛选（引擎、排序）属于首页网格；
+  // 判定逻辑和首页共用 filterProjects，两处的搜索结果不会再对不上。
+  const [query, setQuery] = useState<ProjectQuery>(DEFAULT_QUERY)
 
   const provider = findProvider(settings.activeProviderId)
 
-  const list = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return projects
-      .filter((p) => (starOnly ? p.starred : true))
-      .filter((p) => (q ? p.name.toLowerCase().includes(q) || p.messages.some((m) => m.content.toLowerCase().includes(q)) : true))
-      .sort((a, b) => Number(b.starred) - Number(a.starred) || b.updatedAt - a.updatedAt)
-  }, [projects, query, starOnly])
+  const list = useMemo(
+    () => filterProjects(projects, query).map((r) => r.project),
+    [projects, query],
+  )
 
   function onNew() {
     const p = createProject()
@@ -55,10 +54,20 @@ export default function Sidebar({ activeProjectId }: SidebarProps) {
 
       <div className="side-search">
         <IconSearch size={14} />
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索我的应用" />
+        <input
+          value={query.query}
+          onChange={(e) => setQuery((q) => ({ ...q, query: e.target.value }))}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setQuery((q) => ({ ...q, query: '' }))
+          }}
+          placeholder="搜索我的应用"
+          aria-label="搜索我的应用"
+          spellCheck={false}
+        />
         <button
-          className={`chip-toggle ${starOnly ? 'on' : ''}`}
-          onClick={() => setStarOnly((v) => !v)}
+          className={`chip-toggle ${query.starredOnly ? 'on' : ''}`}
+          onClick={() => setQuery((q) => ({ ...q, starredOnly: !q.starredOnly }))}
+          aria-pressed={query.starredOnly}
           title="只看收藏"
           type="button"
         >

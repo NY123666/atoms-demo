@@ -6,8 +6,56 @@
     <title>Forge · 说一句话，生成可运行的网页应用</title>
     <meta
       name="description"
-      content="Forge 是一个智能体驱动的造物台：用一句话描述需求，实时生成、预览、迭代、分享一个真正可运行的网页应用。"
+      content="说一句话，就能得到一个真正能用的网页应用。生成、预览、改一版、分享全在浏览器里完成，不用注册、不用安装、不用 API Key。"
     />
+
+    <!-- 分享卡片：链接发到微信 / 飞书 / Slack / X 时要能立起来一张像样的卡，
+         否则对方只看到一串裸 URL。og:image 需要绝对地址，等线上域名定下来再补。 -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Forge" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:title" content="Forge · 说一句话，生成可运行的网页应用" />
+    <meta
+      property="og:description"
+      content="说一句话，就能得到一个真正能用的网页应用。生成、预览、改一版、分享全在浏览器里完成，不用注册、不用安装、不用 API Key。"
+    />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Forge · 说一句话，生成可运行的网页应用" />
+    <meta
+      name="twitter:description"
+      content="说一句话，就能得到一个真正能用的网页应用。不用注册、不用安装、不用 API Key。"
+    />
+    <!-- 地址栏 / 移动端浏览器 UI 跟着应用主题走，默认是深色 -->
+    <meta name="theme-color" content="#0a0c11" />
+
+    <!--
+      首屏底色 + 主题预热。这两段必须内联在 head 里，且必须排在样式表前面：
+      样式包是外部请求，到达之前浏览器已经开始画第一帧了，不铺垫的话深色应用会先闪一下白底。
+      主题值从 localStorage 直接读，所以和 src/lib/storage.ts 里的 key（forge:settings）
+      及信封格式 {v,data} 是**耦合的** —— 那边改了这里不会报错，只是退化成"闪一下默认深色"，
+      属于可接受的最坏结果，因此刻意不做额外同步机制。
+      注意：脚本里不能出现 HTML 注释起始串（会把分词器带进退不出来的状态，
+      单文件版会直接白屏），所以这里只用 // 注释。
+    -->
+    <style>
+      html { background: #0a0c11; }
+      html[data-theme='light'] { background: #f5f7fb; }
+    </style>
+    <script>
+      ;(function () {
+        try {
+          var raw = localStorage.getItem('forge:settings')
+          if (!raw) return
+          var parsed = JSON.parse(raw)
+          var data = parsed && parsed.data ? parsed.data : parsed
+          if (data && data.theme === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light')
+          }
+        } catch (e) {
+          // 读不到、解析失败、隐私模式下抛错：都按默认深色走，不影响应用启动
+        }
+      })()
+    </script>
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236d5cff'/%3E%3Cpath d='M11 22V10h10M11 16h7' stroke='white' stroke-width='2.6' stroke-linecap='round' fill='none'/%3E%3C/svg%3E"

@@ -674,6 +674,104 @@ pre {
   gap: 8px;
 }
 
+/* 首页网格的检索条：窄屏上侧边栏整个被隐藏，这里是唯一的搜索入口。 */
+.project-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.filter-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 200px;
+  max-width: 320px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel-2);
+  color: var(--muted);
+}
+
+.filter-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 12.5px;
+}
+
+.filter-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: var(--muted-2);
+}
+
+.filter-clear:hover {
+  background: var(--panel);
+  color: var(--text);
+}
+
+.filter-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel-2);
+  color: var(--muted-2);
+  font-size: 11.5px;
+}
+
+.filter-select select {
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.filter-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  color: var(--muted-2);
+  font-size: 11.5px;
+}
+
+.filter-reset {
+  color: var(--accent);
+  font-size: 11.5px;
+}
+
+.filter-reset:hover {
+  text-decoration: underline;
+}
+
+/* 卡片上"它为什么被搜到"：只在命中的那句话不是卡片正文时才出现。 */
+.pc-hit {
+  padding-left: 7px;
+  border-left: 2px solid var(--accent);
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.6;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+}
+
 .empty {
   display: flex;
   flex-direction: column;
@@ -1964,6 +2062,16 @@ pre {
 
   .page-home {
     padding: 24px 18px 48px;
+  }
+
+  /* 窄屏上检索条独占一行，别把输入框挤成一条缝。 */
+  .filter-search {
+    max-width: none;
+    flex: 1 1 100%;
+  }
+
+  .filter-count {
+    margin-left: 0;
   }
 
   .hero h1 {

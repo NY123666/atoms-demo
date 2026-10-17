@@ -136,9 +136,15 @@ function buildSingleFile(): { bytes: number; jsBytes: number; cssBytes: number; 
   if (externalTags.length > 0) throw new Error(`单文件里还残留外部资源引用：${externalTags.join(' ')}`)
 
   /* 内联脚本一旦被字面量 `</script>` 提前截断，DOM 会从那里断掉、页面白屏——
-     数量对不上就说明转义没兜住。 */
+     数量对不上就说明转义没兜住。
+     期望值从 dist/index.html 自己数出来，而不是写死 1：页面里可能还有别的页内脚本
+     （比如 head 里预热主题的那一段），写死的话每加一个都得回来改这里，迟早会漏。
+     内联是"一个 module 脚本换一个 module 脚本"的 1:1 替换，所以脚本元素个数前后不变。 */
+  const expectedClosers = (indexHtml.match(/<script\b/gi) ?? []).length
   const closers = (single.match(/<\/script>/g) ?? []).length
-  if (closers !== 1) throw new Error(`单文件里的 </script> 数量不对：${closers}（应为 1）`)
+  if (closers !== expectedClosers) {
+    throw new Error(`单文件里的 </script> 数量不对：${closers}（应为 ${expectedClosers}）`)
+  }
 
   /* 第二处坑同理由：行内脚本里还剩字面量 `<!--` 的话，分词器会进 escaped 状态且退不出来
      （因为退回来需要的字面量 `</script` 刚被上一步全部转义掉了）。这里显式查一遍。 */
