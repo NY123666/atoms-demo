@@ -8,6 +8,9 @@
  * 4. 分享链接的压缩编解码往返无损；
  * 5. 首页检索/筛选的纯函数判定（和 UI 共用同一份代码，见 lib/projects.ts）。
  *
+ * 附加两节是"策略类"的：提示词组装、以及本站内置模型的开机切换策略。
+ * 它们的共同点是**不碰网络**，所以放在这里当硬关卡 —— 每次提交都能验，不花一分钱。
+ *
  * 运行：npm run smoke
  */
 
@@ -17,6 +20,7 @@ import { checkRunnable, extractHtml, instrument, SANDBOX_ATTRS } from '../src/li
 import { decodeShare, encodeShare } from '../src/lib/share'
 import { buildGeneratePrompt, buildIteratePrompt, SYSTEM_PROMPT } from '../src/lib/prompt'
 import { DEFAULT_QUERY, currentVersionOf, engineOf, filterProjects, isFiltering } from '../src/lib/projects'
+import { decideStationSwitch } from '../src/lib/station'
 import type { AppVersion, ChatMessage, GenSource, Project, SharePayload } from '../src/types'
 
 let passed = 0
@@ -412,6 +416,38 @@ async function main(): Promise<void> {
     ok('没动筛选时不算"正在筛选"', !isFiltering(DEFAULT_QUERY))
     ok('只输入空白不算筛选', !isFiltering({ ...DEFAULT_QUERY, query: '   ' }))
     ok('搜索 / 只看收藏 / 引擎 都算正在筛选', isFiltering({ ...DEFAULT_QUERY, query: 'a' }) && isFiltering({ ...DEFAULT_QUERY, starredOnly: true }) && isFiltering({ ...DEFAULT_QUERY, engine: 'empty' }))
+  }
+
+  console.log('— 附加：本站内置模型的开机策略 —')
+  {
+    /*
+     * 这一节只跑纯函数，available 直接当参数传，所以**不需要**真的配一个 Key。
+     * 也正因为如此，它在"没配内置 Key"的构建里照样跑得动 —— 撤 Key 之后这层保护还在。
+     */
+    const fresh = { activeProviderId: 'demo', providerChosen: false }
+    const chosen = { activeProviderId: 'demo', providerChosen: true }
+    const onStation = { activeProviderId: 'station', providerChosen: true }
+    const onOwnKey = { activeProviderId: 'deepseek', providerChosen: true }
+
+    const adopt = decideStationSwitch(fresh, true)
+    ok('内置｜演示引擎 + 没选过 + 有内置 Key → 自动启用', adopt.kind === 'adopt' && adopt.providerId === 'station', adopt.kind)
+    ok('内置｜启用时说明了不需要 Key', /不需要 API Key/.test(adopt.message ?? ''), adopt.message ?? '')
+
+    ok(
+      '内置｜访客自己选过就不再自动切（providerChosen 是红线）',
+      decideStationSwitch(chosen, true).kind === 'none',
+    )
+    ok('内置｜已经自带 Key 的访客不会被拽走', decideStationSwitch(onOwnKey, true).kind === 'none')
+    ok('内置｜正在用内置模型时无事发生', decideStationSwitch(onStation, true).kind === 'none')
+    ok('内置｜没内置 Key 时什么都不做', decideStationSwitch(fresh, false).kind === 'none')
+
+    const back = decideStationSwitch(onStation, false)
+    ok('内置｜站长撤了 Key → 退回演示引擎', back.kind === 'fallback' && back.providerId === 'demo', back.kind)
+    ok('内置｜退回时把原因一起说了', /没有内置/.test(back.message ?? ''), back.message ?? '')
+    ok(
+      '内置｜退回不看 providerChosen（它是修错，不是偏好）',
+      decideStationSwitch({ activeProviderId: 'station', providerChosen: false }, false).kind === 'fallback',
+    )
   }
 
   const total = passed + failures.length

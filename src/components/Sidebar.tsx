@@ -6,7 +6,7 @@ import {
   toggleStar,
   useStore,
 } from '../lib/store'
-import { findProvider } from '../lib/providers'
+import { HOSTED_PROVIDER_ID, STATION_PROVIDER_ID, findProvider } from '../lib/providers'
 import { DEFAULT_QUERY, filterProjects, type ProjectQuery } from '../lib/projects'
 import { go } from '../lib/router'
 import { timeAgo } from '../lib/format'
@@ -141,7 +141,19 @@ export default function Sidebar({ activeProjectId }: SidebarProps) {
         <IconLayers size={14} />
         <span>
           <strong>{provider.name}</strong>
-          <em>{settings.activeProviderId === 'demo' ? '无需 Key · 模板引擎' : '自带 Key · 浏览器直连'}</em>
+          {/*
+            这行小字是访客唯一一眼能看到的"我的 Key 在哪"的答案，所以四种引擎得四种说法。
+            尤其不能把内置模型也写成「自带 Key」—— 访客没填过任何东西，看到这句会以为哪里出错了。
+          */}
+          <em>
+            {settings.activeProviderId === 'demo'
+              ? '无需 Key · 模板引擎'
+              : settings.activeProviderId === STATION_PROVIDER_ID
+                ? '无需 Key · 本站内置'
+                : settings.activeProviderId === HOSTED_PROVIDER_ID
+                  ? '无需 Key · 本站付费'
+                  : '自带 Key · 浏览器直连'}
+          </em>
         </span>
         <IconSettings size={15} />
       </button>

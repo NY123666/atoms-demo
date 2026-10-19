@@ -86,16 +86,38 @@ export const HOSTED_PROVIDER: ProviderDef = {
   hint: '由本站付费调用真模型，访客不需要任何 API Key，也不需要注册。每天有公开额度上限。',
 }
 
+/**
+ * 本站内置模型：站长把自己的 Key 在**构建期**打进前端包，访客点开就能用。
+ *
+ * 为什么不复用 HOSTED_PROVIDER：那张卡片上写着"上游密钥只存在服务端，浏览器里拿不到"，
+ * 而这条路径恰恰相反 —— Key 就在页面 JS 里。硬塞进同一个卡片，等于对访客说假话。
+ * 两者的账单模型也不同（托管代理有服务端每日上限兜底，内置 Key 没有），
+ * 所以宁可多一个引擎、多一句实话。
+ *
+ * 细节与取舍见 lib/station.ts。
+ */
+export const STATION_PROVIDER_ID = 'station'
+
+export const STATION_PROVIDER: ProviderDef = {
+  id: STATION_PROVIDER_ID,
+  name: '本站内置模型',
+  baseUrl: '', // 真实地址来自构建期变量，见 lib/station.ts
+  models: [], // 同上：模型名以构建期变量为准
+  keyUrl: '',
+  hint: '由本站预置的 Key 直接调用真模型，访客不需要任何 API Key，也不需要注册。',
+}
+
 export function findProvider(id: string): ProviderDef {
   if (id === DEMO_PROVIDER_ID) return DEMO_PROVIDER
   if (id === HOSTED_PROVIDER_ID) return HOSTED_PROVIDER
+  if (id === STATION_PROVIDER_ID) return STATION_PROVIDER
   return PROVIDERS.find((p) => p.id === id) ?? DEMO_PROVIDER
 }
 
 /**
  * 只列"永远存在"的引擎：内置演示引擎 + 7 家可自带 Key 的服务商。
- * 托管模型不在这里 —— 它可能存在也可能不存在（取决于有没有部署代理），
- * 由界面按探测结果**条件插入**（见 SettingsDialog）。
+ * 托管模型/内置模型都不在这里 —— 它们可能存在也可能不存在（取决于有没有部署代理、
+ * 这一次构建有没有注入 Key），由界面按实际情况**条件插入**（见 SettingsDialog）。
  * 把不确定存在的东西放进这个列表，就会在没部署代理的站上给访客一个点了必然失败的选项。
  */
 export function allProviders(): ProviderDef[] {
@@ -104,8 +126,14 @@ export function allProviders(): ProviderDef[] {
 
 /**
  * 设置窗口要显示的引擎列表。
- * 托管模型排在内置演示引擎后面（都是"零配置"选项，放一起），自带 Key 的家排在后面。
+ * 两个"零配置"选项（内置模型、托管模型）排在内置演示引擎后面、自带 Key 的家前面，
+ * 因为对绝大多数访客来说，这两个才是他真正要点的东西。
  */
-export function providerChoices(includeHosted: boolean): ProviderDef[] {
-  return includeHosted ? [DEMO_PROVIDER, HOSTED_PROVIDER, ...PROVIDERS] : allProviders()
+export function providerChoices(includeHosted: boolean, includeStation = false): ProviderDef[] {
+  return [
+    DEMO_PROVIDER,
+    ...(includeStation ? [STATION_PROVIDER] : []),
+    ...(includeHosted ? [HOSTED_PROVIDER] : []),
+    ...PROVIDERS,
+  ]
 }

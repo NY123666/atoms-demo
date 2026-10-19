@@ -3,8 +3,9 @@ import { getHostedStatus } from './hosted'
 import { deriveTitle } from './intent'
 import { streamChat } from './llm'
 import { buildGeneratePrompt, buildIteratePrompt, SYSTEM_PROMPT } from './prompt'
-import { HOSTED_PROVIDER_ID, findProvider } from './providers'
+import { HOSTED_PROVIDER_ID, STATION_PROVIDER_ID, findProvider } from './providers'
 import { checkRunnable, extractHtml } from './sandbox'
+import { stationApiKey, stationBaseUrl, stationModel } from './station'
 import type { NewVersion, GenerateParams } from './generate'
 
 export function llmSteps(prompt: string, iterating: boolean, hasPrev: boolean): GenStep[] {
@@ -60,17 +61,34 @@ export async function runLlmGeneration(p: LlmPipelineParams): Promise<NewVersion
   const provider = findProvider(providerId)
   const stored = settings.providers[providerId]
   const isHosted = providerId === HOSTED_PROVIDER_ID
+  const isStation = providerId === STATION_PROVIDER_ID
   const hosted = getHostedStatus()
 
   /*
-   * 托管模式和自带 Key 的唯一区别就在这三行：
-   * baseUrl 指向代理而不是服务商，apiKey 是空的（Key 在服务端），model 以服务端回报的为准。
+   * 三种"非自带 Key"模式的区别都收在这三行里：
+   *   - 托管代理：baseUrl 指向代理，apiKey 空（Key 在服务端），model 以服务端回报为准；
+   *   - 本站内置：baseUrl/apiKey/model 全部来自**构建期**变量（Key 在包里，见 lib/station.ts）；
+   *   - 自带 Key：三者都来自访客自己的设置。
    * 下面的抽取 / 自检 / 自动修复整条流水线完全复用 —— 这也是当初全部走 OpenAI 兼容协议换来的。
    */
-  const apiKey = isHosted ? '' : (stored?.apiKey?.trim() ?? '')
-  const baseUrl = isHosted ? hosted.chatBase : (stored?.baseUrl?.trim() || provider.baseUrl).trim()
+  const apiKey = isHosted
+    ? ''
+    : isStation
+      ? stationApiKey()
+      : (stored?.apiKey?.trim() ?? '')
+  const baseUrl = isHosted
+    ? hosted.chatBase
+    : isStation
+      ? stationBaseUrl()
+      : (stored?.baseUrl?.trim() || provider.baseUrl).trim()
   // 托管模式下模型名由服务端决定（前端传什么都可能被代理改写），所以以探测结果为唯一来源
-  const model = (isHosted ? (hosted.model ?? '') : stored?.model?.trim() || provider.models[0] || '').trim()
+  const model = (
+    isHosted
+      ? (hosted.model ?? '')
+      : isStation
+        ? stationModel()
+        : stored?.model?.trim() || provider.models[0] || ''
+  ).trim()
 
   if (isHosted) {
     /*
@@ -89,6 +107,14 @@ export async function runLlmGeneration(p: LlmPipelineParams): Promise<NewVersion
     if (!baseUrl) {
       throw new Error('托管代理当前不可用。请在右上角「模型设置」里重新检测，或切回内置演示引擎。')
     }
+  } else if (isStation && !apiKey) {
+    /*
+     * 必须有这一支，不能让它掉进下面那句通用报错里。
+     * 通用的那句是"请在设置里填写 API Key"—— 可这张卡片上没有输入框，访客填不了。
+     * 出现这种情况只有一种原因：界面还留在"有内置模型"的版本，而这次构建没注入 Key
+     * （多半是站长撤了）。App 的开机策略会在下次刷新时把他送回去，这里给出同样的指引。
+     */
+    throw new Error('这一版没有内置本站的模型 Key。请在右上角「模型设置」里切回内置演示引擎，或配置自己的 API Key。')
   } else if (!apiKey) {
     throw new Error(`还没配置「${provider.name}」的 API Key。请在右上角「模型设置」里填写，或切回内置演示引擎。`)
   }

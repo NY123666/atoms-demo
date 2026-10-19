@@ -90,6 +90,38 @@ function escapeForInlineScript(code: string): { code: string; closers: number; c
   return { code: out, closers, comments }
 }
 
+/**
+ * 单文件版是要**发给别人**的（README 里原话就是"发给别人也是一个附件的事"），
+ * 而且它会被写成仓库根目录那个**被 git 跟踪**的 forge-standalone.html。
+ * 所以它绝不能带着「本站内置模型」的 Key —— 一旦带上，`git add -A` 就把 Key
+ * 永久写进了公开仓库历史，之后还会跟着附件一份份传出去。
+ *
+ * 这里**只警告、不报错**，是权衡过的：CI 那次构建本来就带 Key（站点自己要用），
+ * 硬报错会让线上那个 /forge-standalone.html 直接生成不出来。但警告必须响，
+ * 因为最容易踩的动作特别顺：本机 .env 里填了 VITE_STATION_API_KEY → npm run verify
+ * → 单文件版就带上了 Key → git add -A → 已经晚了。
+ */
+function warnIfSecretBakedIn(js: string): void {
+  const hits: string[] = []
+  if (/VITE_STATION_[A-Z_]*KEY\s*:\s*"[^"]+"/.test(js)) {
+    hits.push('VITE_STATION_API_KEY 被内联成了非空值')
+  }
+  /* 兜底：万一以后 Vite 换了一种内联 `import.meta.env` 的写法，上面那条就失灵了。
+     `sk-` 后面跟 16 个以上密钥字符才算数 —— 刻意避开设置页里那个 `sk-...` 占位符。 */
+  const baked = js.match(/\bsk-[A-Za-z0-9_-]{16,}/g)
+  if (baked && baked.length > 0) hits.push(`${baked.length} 处形如真实密钥的字符串`)
+
+  if (hits.length === 0) return
+  console.warn('')
+  console.warn('  ⚠️  这份单文件里带着本站内置模型的上游 Key：')
+  for (const h of hits) console.warn(`       · ${h}`)
+  console.warn('      产物：forge-standalone.html（仓库根目录，**被 git 跟踪**）')
+  console.warn('      后果：提交它等于把 Key 写进公开仓库历史，而且是永久性的。')
+  console.warn('      处理：别提交这个文件。本机想重新生成一份干净的，先去掉 .env 里的')
+  console.warn('            VITE_STATION_API_KEY（或临时 unset）再 npm run verify。')
+  console.warn('')
+}
+
 function buildSingleFile(): { bytes: number; jsBytes: number; cssBytes: number; closers: number; comments: number } {
   const indexHtml = readFileSync(join(DIST, 'index.html'), 'utf8')
   const read = (rel: string) => readFileSync(join(DIST, rel), 'utf8')
@@ -100,6 +132,7 @@ function buildSingleFile(): { bytes: number; jsBytes: number; cssBytes: number; 
 
   const escaped = escapeForInlineScript(read(jsRef))
   const js = escaped.code
+  warnIfSecretBakedIn(js)
   /* CSS 里 `</style` 会提前闭合 style 元素。当前产物是 0 次，所以这里直接报错而不是改写：
      真出现了应该先看清楚它落在什么上下文（CSS 字符串里 `\/` 才有转义含义），别默默改坏。 */
   const cssRaw = read(cssRef)
@@ -172,6 +205,20 @@ const PROBE = `<script>
 window.__err = [];
 window.addEventListener('error', function (e) { window.__err.push(String(e.message).slice(0, 120)); });
 window.addEventListener('unhandledrejection', function (e) { window.__err.push('reject: ' + String(e.reason).slice(0, 120)); });
+
+/* 先把引擎钉在演示引擎上，**必须**在应用启动之前：这段是普通脚本，边解析边执行，
+   而应用那个 <script type="module"> 是 defer 的，所以这里一定更早。
+   为什么非钉不可：这一版可能内置了站点自己的 Key（见 src/lib/station.ts），
+   那样应用的默认行为就是"开机自动切到真模型"——于是这条冒烟测试会变成
+   一次真实的、要花钱的、依赖外网的上游调用，而且 20 秒内多半还等不到产物。
+   冒烟测试的前提是**离线、免费、确定**，所以这里明确扮演一个"已经自己选过引擎的访客"：
+   providerChosen 一旦为 true，开机那两条自动切换策略都不会再动它。 */
+try {
+  localStorage.setItem('forge:settings', JSON.stringify({
+    v: 1,
+    data: { activeProviderId: 'demo', providers: {}, theme: 'dark', autoFix: true, streamDemo: true, hostedBase: '', providerChosen: true }
+  }));
+} catch (e) { /* 存不进去也不致命：下面有专门一条断言在测 localStorage 能不能用 */ }
 
 (function () {
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }

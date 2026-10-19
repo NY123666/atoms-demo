@@ -46,9 +46,18 @@ jobs:
       # 在本仓库 Settings → Variables 里加一个 VITE_HOSTED_BASE_URL 指向代理地址
       # （例如 https://forge-hosted.vercel.app），静态站和代理不同域时就不用改代码；
       # 没配的话前端会自动试同源的 /api，代理没部署时这个选项根本不会露出来。
+      #
+      # VITE_STATION_API_KEY 走 Secrets 而不是 Variables：Pages 是纯静态托管，没有服务端，
+      # 所以这个 Key 只能打进前端包 —— 换言之**它一定会被公开**，这是这条路的固有代价
+      # （选型和风险写在 src/lib/station.ts 顶部）。用 Secrets 只是为了避免它出现在
+      # 构建日志和仓库设置页里，不是因为它在那儿是安全的。
+      # 介意的话就别配这一条：不配时界面上不会出现「本站内置模型」，其余功能一切照旧。
       - run: npm run build
         env:
           VITE_HOSTED_BASE_URL: ${{ vars.VITE_HOSTED_BASE_URL }}
+          VITE_STATION_API_KEY: ${{ secrets.VITE_STATION_API_KEY }}
+          VITE_STATION_BASE_URL: ${{ vars.VITE_STATION_BASE_URL }}
+          VITE_STATION_MODEL: ${{ vars.VITE_STATION_MODEL }}
 
       # 后三关需要无头 Chromium（GitHub 的 ubuntu 镜像自带 Chrome）。
       # 万一镜像里没有浏览器，脚本会自己跳过并警告——这里再兜一层 continue-on-error，

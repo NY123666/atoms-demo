@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { HOSTED_PROVIDER_ID, findProvider, providerChoices } from '../lib/providers'
+import { HOSTED_PROVIDER_ID, STATION_PROVIDER_ID, findProvider, providerChoices } from '../lib/providers'
 import { hostedEnvBase, hostedOfferable, hostedUsable, refreshHosted, resetHostedStatus, useHosted } from '../lib/hosted'
+import { stationApiKey, stationAvailable, stationBaseUrl, stationModel } from '../lib/station'
 import { updateProviderSettings, updateSettings, useStore, resetEverything } from '../lib/store'
 import { testConnection } from '../lib/llm'
 import type { TestResult } from '../lib/llm'
@@ -19,6 +20,7 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
   const stored = settings.providers[selected] ?? { apiKey: '', baseUrl: '', model: '' }
   const isDemo = selected === 'demo'
   const isHosted = selected === HOSTED_PROVIDER_ID
+  const isStation = selected === STATION_PROVIDER_ID
   const isActive = settings.activeProviderId === selected
 
   const effectiveBaseUrl = stored.baseUrl.trim() || def.baseUrl
@@ -35,12 +37,20 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
    */
   const showHosted = hostedOfferable(hosted) || Boolean(settings.hostedBase.trim())
 
-  const list = providerChoices(showHosted)
+  /*
+   * 内置模型判起来比托管模型简单得多：它要么在这一次构建里（Key 打进了包），要么就整个不存在。
+   * 没有"探测中""额度用完""站长没配上游"这些中间态 —— 所以只有 available 一个布尔值，
+   * 不可用时就干脆不列出来（列出来也修不好：访客手上没有能填的东西）。
+   */
+  const showStation = stationAvailable()
+
+  const list = providerChoices(showHosted, showStation)
 
   /** 列表左边那个小圆点：绿＝现在就能用。三类的"能用"定义不同，所以分开判断。 */
   function providerReady(p: { id: string }): boolean {
     if (p.id === 'demo') return true
     if (p.id === HOSTED_PROVIDER_ID) return hostedUsable(hosted)
+    if (p.id === STATION_PROVIDER_ID) return stationAvailable()
     return Boolean(settings.providers[p.id]?.apiKey?.trim())
   }
 
@@ -49,7 +59,11 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
     setResult(null)
     const res = isHosted
       ? await testHosted()
-      : await testConnection({ baseUrl: effectiveBaseUrl, apiKey: stored.apiKey, model: effectiveModel })
+      : isStation
+        ? // 真发一次请求到上游：这就是验证"内置的 Key 到底还能不能用"的唯一办法。
+          // 会花掉一点点额度，但换来的是真话 —— 不然这张卡片上只能写"应该能用"。
+          await testConnection({ baseUrl: stationBaseUrl(), apiKey: stationApiKey(), model: stationModel() })
+        : await testConnection({ baseUrl: effectiveBaseUrl, apiKey: stored.apiKey, model: effectiveModel })
     setResult(res)
     setTesting(false)
   }
@@ -137,6 +151,53 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
                   用来演示端到端链路、以及在没有密钥的环境里立刻试跑。
                 </p>
                 <p>想要任意形态的页面，把引擎切到下面任意一家模型服务即可 —— 全部走 OpenAI 兼容协议。</p>
+              </div>
+            ) : isStation ? (
+              <div className="pf-demo">
+                <h3>本站内置模型</h3>
+                <p>
+                  由本站预置的 Key 直接调用真模型，你不需要 API Key、不需要注册、不需要填写任何地址 ——
+                  打开就能用。
+                </p>
+
+                <ul className="pf-facts">
+                  <li>
+                    <span>调用的模型</span>
+                    <b>{stationModel()}</b>
+                  </li>
+                  <li>
+                    <span>请求发往</span>
+                    <b>{stationBaseUrl().replace(/^https?:\/\//, '')}</b>
+                  </li>
+                </ul>
+
+                {/*
+                  这段是这个面板存在的理由，不是为了合规而写的一句套话：
+                  内置 Key 和「托管模型」在技术上完全是两回事（那个跑在服务端、浏览器拿不到），
+                  这里的 Key 就明明白白在页面 JS 里。不写清楚，访客会以为两者一样安全。
+                  写清楚了，懂的人自然知道该切到下面自带 Key 的方案。
+                */}
+                <p className="pf-warn">
+                  注意：这个 Key 是打包进网页的，懂技术的人查看页面源码就能找到它（这是"开箱即用"的代价）。
+                  请不要用它处理机密或敏感数据。介意的话，用下面任意一家「自带 Key」的服务商 ——
+                  那种方式下 Key 只存在你自己的浏览器里。
+                </p>
+
+                <div className="pf-actions">
+                  <button className="btn btn-ghost" onClick={() => void onTest()} disabled={testing} type="button">
+                    {testing ? '检测中…' : '测试连接'}
+                  </button>
+                  <button
+                    className={`btn ${isActive ? 'btn-ghost' : 'btn-primary'}`}
+                    onClick={() => useProvider(STATION_PROVIDER_ID, def.name)}
+                    disabled={isActive}
+                    type="button"
+                  >
+                    {isActive ? '当前引擎' : '设为当前引擎'}
+                  </button>
+                </div>
+
+                {resultNode}
               </div>
             ) : isHosted ? (
               <div className="pf-demo">

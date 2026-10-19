@@ -4,8 +4,9 @@ import ProjectFilters from './ProjectFilters'
 import { DEMO_SHOWCASE } from '../lib/demoEngine'
 import { deriveTitle } from '../lib/intent'
 import { createProject, useStore, deleteProject, toggleStar, duplicateProject } from '../lib/store'
-import { HOSTED_PROVIDER_ID, findProvider } from '../lib/providers'
+import { HOSTED_PROVIDER_ID, STATION_PROVIDER_ID, findProvider } from '../lib/providers'
 import { useHosted } from '../lib/hosted'
+import { stationModel } from '../lib/station'
 import { setHandoff } from '../lib/handoff'
 import { go } from '../lib/router'
 import { timeAgo } from '../lib/format'
@@ -41,6 +42,13 @@ export default function Dashboard() {
           </span>
           {settings.activeProviderId === 'demo' ? (
             <span className="pill">无需 API Key，开箱即测</span>
+          ) : settings.activeProviderId === STATION_PROVIDER_ID ? (
+            // 跟下面那句「Key 只存在你的浏览器里」正相反，所以必须单开一支：
+            // 内置模型的 Key 在页面里，说成"只存在你浏览器里"是错的，尽管访客也拿不到它。
+            <span className="pill">
+              <IconBolt size={13} />
+              本站内置 {stationModel()}，无需配置
+            </span>
           ) : settings.activeProviderId === HOSTED_PROVIDER_ID ? (
             // 把剩余额度放在首屏：访客不用点进设置就知道"这个还能用几次"，
             // 额度见底时也有心理预期，而不是生成到一半突然被拒。
