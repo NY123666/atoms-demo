@@ -10,6 +10,7 @@
  */
 import { createServer } from 'node:http'
 import { Readable } from 'node:stream'
+import { fileURLToPath } from 'node:url'
 import { createHostedHandler } from './hosted-core.mjs'
 
 export function startDevServer({ port = 8787, env = process.env, log = undefined } = {}) {
@@ -79,6 +80,19 @@ export function startDevServer({ port = 8787, env = process.env, log = undefined
 
 /** `node server/dev.mjs` 直接跑起来（被 import 时不会执行）。 */
 if (process.argv[1] && process.argv[1].endsWith('dev.mjs')) {
+  /*
+   * 读仓库根目录的 .env（本地开发用，已被 .gitignore 忽略）。
+   * 刻意只在这条"直接运行"的分支里读：被 import 时（npm run smoke:hosted）
+   * 一个字节都不读 —— 集成测试传的是它自己那套假上游 + 假 Key，绝不该被本地真 Key 影响。
+   * 没有 .env（新克隆的仓库）就先 catch 掉，继续用 shell 里已导出的变量；
+   * Node 20.12 以下没有 loadEnvFile，也照跑不误。
+   */
+  try {
+    process.loadEnvFile(fileURLToPath(new URL('../.env', import.meta.url)))
+  } catch {
+    /* 没有 .env：忽略 */
+  }
+
   const { listen, config } = startDevServer({ port: Number(process.env.PORT || 8787) })
   const base = await listen()
   console.log(`[forge-hosted] 托管代理已启动：${base}`)

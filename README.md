@@ -57,6 +57,10 @@ npm run preview      # 本地模拟线上形态（http://localhost:4173）
 npm run hosted:dev   # 本地起代理（http://127.0.0.1:8787），npm run dev 会自动把 /api 代理到它
 ```
 
+本地跑真模型：把 `.env.example` 复制成 `.env`（已被 `.gitignore` 忽略），填上 `UPSTREAM_API_KEY`。
+`npm run hosted:dev` 会自己读仓库根目录的 `.env`，不用手动 export；没有 `.env` 时它照常启动，
+只是 `/api/health` 会回 `ready:false`，前端就不会把「托管模型」这个选项露给你。
+
 线上二选一（两个平台用的都是同一份 `hosted-core.mjs`）：
 
 | 平台 | 怎么做 | 环境变量 |
