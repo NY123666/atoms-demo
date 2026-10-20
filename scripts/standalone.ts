@@ -242,7 +242,7 @@ try {
         r.mounted = !!document.querySelector('.shell');
         r.brand = line(document.querySelector('.brand strong') ? document.querySelector('.brand strong').textContent : '');
         var mark = document.querySelector('.brand-mark');
-        if (mark) { var ms = getComputedStyle(mark); r.markW = ms.width; r.markBg = ms.backgroundImage; }
+        if (mark) { var ms = getComputedStyle(mark); r.markW = ms.width; r.markFill = ms.backgroundColor; }
 
         /* 走一遍真实交互：点一个示例 chip → 点「生成」→ 等产物挂进 iframe */
         var chip = document.querySelector('.chip');
@@ -334,7 +334,7 @@ function verify(browser: string): void {
   ok('探针没报致命错误', !r.fatal, String(r.fatal ?? ''))
   ok('确实是从 file:// 打开的', r.protocol === 'file:', String(r.protocol))
   ok('JS 内联脚本执行了（React 挂载出界面）', r.mounted === true && Number(r.rootLen) > 800, `#root ${r.rootLen}B`)
-  ok('CSS 内联样式生效了', r.markW === '32px' && /linear-gradient/.test(String(r.markBg)), `${r.markW}｜${String(r.markBg).slice(0, 40)}`)
+  ok('CSS 内联样式生效了', r.markW === '32px' && /^rgb\(\d/.test(String(r.markFill)), `${r.markW}｜${String(r.markFill).slice(0, 40)}`)
   ok('file:// 下 localStorage 可用', r.ls === true, `${r.lsErr ?? ''}`)
   ok('CompressionStream 可用（分享码的前提）', r.hasCompression === true)
   ok('示例 chip 点了会填进需求框', typeof r.draft === 'string' && r.draft.length > 0, String(r.draft ?? ''))

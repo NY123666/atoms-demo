@@ -430,7 +430,7 @@ async function main(): Promise<void> {
       console.log('⚠️  这个浏览器在 file:// 下没有 crypto.subtle，账号功能按设计被禁用，跳过界面验证')
       console.log('   （想验的话用 npm run preview 起 http://localhost 再打开）')
     } else {
-      ok('开机是访客态', r.bootLabel === '访客模式' && r.bootSub === '登录后应用归属账号', `${str('bootLabel')} / ${str('bootSub')}`)
+      ok('开机是访客态', r.bootLabel === '访客模式' && /点此登录/.test(String(r.bootSub)), `${str('bootLabel')} / ${str('bootSub')}`)
       ok('访客看到自己的应用', list('bootItems').join(',') === '访客的应用', list('bootItems').join(','))
       ok('访客态用的是老 key（升级不丢数据）', list('keysBefore').includes('forge:projects'), list('keysBefore').join(','))
       ok('宽屏下侧栏在、顶栏不重复显示', r.sidebarVisible === true && r.topbarHidden === true, `sidebar=${str('sidebarVisible')} topbarHidden=${str('topbarHidden')}`)

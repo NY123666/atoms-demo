@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import type { ReactNode } from 'react'
-import { IconSpark, IconStop } from './Icons'
+import { IconStop } from './Icons'
 
 interface ComposerProps {
   value: string
@@ -22,7 +22,7 @@ export default function Composer({
   disabled = false,
   running = false,
   onStop,
-  placeholder = '用一句话描述你想要的网页应用…',
+  placeholder = '描述你想要的网页应用…',
   size = 'lg',
   submitLabel = '生成',
   under,
@@ -61,7 +61,6 @@ export default function Composer({
           </button>
         ) : (
           <button className="btn btn-primary" onClick={submit} disabled={!canSubmit} type="button">
-            <IconSpark size={14} />
             {submitLabel}
           </button>
         )}

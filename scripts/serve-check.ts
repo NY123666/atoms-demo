@@ -47,14 +47,14 @@ window.addEventListener('load', function () {
       var root = document.getElementById('root');
       r.rootLen = root ? root.innerHTML.length : 0;
       r.brand = document.querySelector('.brand strong') ? document.querySelector('.brand strong').textContent : '';
-      /* 用 .brand-mark 的尺寸和渐变背景当"CSS 生效"的证据：
-         它身上只有样式表里那几条规则能给（32px 圆角方块 + accent 渐变）。 */
+      /* 用 .brand-mark 的尺寸和纯色底当"CSS 生效"的证据：
+         它身上只有样式表里那几条规则能给（32px 圆角方块 + accent 实底）。 */
       var mark = document.querySelector('.brand-mark');
       if (mark) {
         var ms = getComputedStyle(mark);
         r.markW = ms.width;
         r.markRadius = ms.borderRadius;
-        r.markBg = ms.backgroundImage;
+        r.markFill = ms.backgroundColor;
       }
       r.bodyBg = getComputedStyle(document.body).backgroundImage + '|' + getComputedStyle(document.body).backgroundColor;
       r.sheets = document.styleSheets.length;
@@ -165,7 +165,7 @@ function main(): void {
       brand: string
       markW: string
       markRadius: string
-      markBg: string
+      markFill: string
       bodyBg: string
       sheets: number
       rules: number
@@ -177,8 +177,8 @@ function main(): void {
     ok('界面文案渲染出来了', r.brand.includes('Forge'), r.brand)
     ok(
       'CSS 包真的生效了',
-      r.rules > 150 && r.markW === '32px' && /linear-gradient/.test(r.markBg),
-      `${r.sheets} 张表 / ${r.rules} 条规则｜brand-mark ${r.markW} 圆角 ${r.markRadius} 背景 ${r.markBg}`,
+      r.rules > 150 && r.markW === '32px' && /^rgb\(\d/.test(r.markFill),
+      `${r.sheets} 张表 / ${r.rules} 条规则｜brand-mark ${r.markW} 圆角 ${r.markRadius} 填充 ${r.markFill}`,
     )
     console.log(`  子路径挂载：${url.replace(/^file:\/\//, '')}`)
     console.log(`  #root ${r.rootLen}B｜样式规则 ${r.rules} 条｜body 背景 ${r.bodyBg.slice(0, 60)}`)

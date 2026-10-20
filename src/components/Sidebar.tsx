@@ -52,7 +52,7 @@ export default function Sidebar({ activeProjectId, onOpenAuth }: SidebarProps) {
         <span className="brand-mark">F</span>
         <span className="brand-text">
           <strong>Forge</strong>
-          <em>一句话生成可运行应用</em>
+          <em>网页应用工作台</em>
         </span>
       </button>
 
@@ -71,7 +71,7 @@ export default function Sidebar({ activeProjectId, onOpenAuth }: SidebarProps) {
         <IconUser size={14} />
         <span>
           <strong>{account ? account.displayName : '访客模式'}</strong>
-          <em>{account ? '本机账号 · 点开可退出' : '登录后应用归属账号'}</em>
+          <em>{account ? '本机账号 · 点此管理' : '数据只在这台浏览器里 · 点此登录'}</em>
         </span>
         <IconChevron size={13} className="side-account-chevron" />
       </button>
@@ -84,8 +84,8 @@ export default function Sidebar({ activeProjectId, onOpenAuth }: SidebarProps) {
           onKeyDown={(e) => {
             if (e.key === 'Escape') setQuery((q) => ({ ...q, query: '' }))
           }}
-          placeholder="搜索我的应用"
-          aria-label="搜索我的应用"
+          placeholder="筛选应用"
+          aria-label="筛选应用"
           spellCheck={false}
         />
         <button
@@ -171,11 +171,11 @@ export default function Sidebar({ activeProjectId, onOpenAuth }: SidebarProps) {
           */}
           <em>
             {settings.activeProviderId === 'demo'
-              ? '无需 Key · 模板引擎'
+              ? '无需 Key · 演示引擎'
               : settings.activeProviderId === STATION_PROVIDER_ID
                 ? '无需 Key · 本站内置'
                 : settings.activeProviderId === HOSTED_PROVIDER_ID
-                  ? '无需 Key · 本站付费'
+                  ? '无需 Key · 本站额度'
                   : '自带 Key · 浏览器直连'}
           </em>
         </span>

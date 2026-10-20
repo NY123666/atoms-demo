@@ -4,7 +4,7 @@ import StepLog from './StepLog'
 import RunRecord from './RunRecord'
 import { formatDateTime } from '../lib/format'
 import type { EnhanceOverview } from '../lib/enhance'
-import { IconHistory, IconSpark } from './Icons'
+import { IconHistory } from './Icons'
 
 interface ChatPanelProps {
   project: Project
@@ -79,10 +79,7 @@ export default function ChatPanel({
       <div className="chat-scroll">
         {project.messages.length === 0 ? (
           <div className="chat-empty">
-            <h3>
-              <IconSpark size={15} />
-              描述你要的应用
-            </h3>
+            <h3>描述你要的应用</h3>
             <p>它会先跑通核心交互，再按你的追加描述继续迭代。每次生成都会存成一版，可以随时回滚。</p>
           </div>
         ) : (

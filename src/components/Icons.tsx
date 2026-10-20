@@ -26,8 +26,6 @@ function svg(path: ReactNode, props: IconProps, viewBox = '0 0 24 24') {
 }
 
 export const IconPlus = (p: IconProps) => svg(<path d="M12 5v14M5 12h14" />, p)
-export const IconSpark = (p: IconProps) =>
-  svg(<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3zM18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8L18 15z" />, p)
 export const IconSettings = (p: IconProps) =>
   svg(
     <>
@@ -77,7 +75,14 @@ export const IconSearch = (p: IconProps) =>
   )
 export const IconHistory = (p: IconProps) =>
   svg(<path d="M3 12a9 9 0 109-9 9 9 0 00-7.5 4M3 4v5h5M12 8v4l3 2" />, p)
-export const IconBolt = (p: IconProps) => svg(<path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" />, p)
+export const IconInfo = (p: IconProps) =>
+  svg(
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11.5V17M12 7.6h.01" />
+    </>,
+    p,
+  )
 export const IconLayers = (p: IconProps) =>
   svg(<path d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5M3 17l9 5 9-5" />, p)
 export const IconExternal = (p: IconProps) =>

@@ -1,6 +1,6 @@
 import type { GenStepState } from '../types'
 import { formatDuration } from '../lib/format'
-import { IconCheck, IconClose, IconSpark } from './Icons'
+import { IconCheck, IconClose } from './Icons'
 
 /**
  * 步骤列表的纯展示部分。执行中的 StepLog 和存档的 RunRecord 共用这一份渲染，
@@ -18,8 +18,6 @@ export function StepList({ steps }: { steps: GenStepState[] }) {
                 <IconCheck size={12} />
               ) : s.status === 'error' ? (
                 <IconClose size={12} />
-              ) : s.status === 'running' ? (
-                <IconSpark size={12} />
               ) : (
                 i + 1
               )}
@@ -52,7 +50,7 @@ export default function StepLog({ steps, running, streamText, totalMs }: StepLog
     <div className="steplog">
       <div className="steplog-head">
         <span className={`dot ${running ? 'busy' : 'idle'}`} />
-        <strong>{running ? '智能体执行中' : steps.length > 0 ? '本次执行记录' : '等待任务'}</strong>
+        <strong>{running ? '正在执行' : steps.length > 0 ? '执行记录' : '空闲'}</strong>
         <span className="steplog-count">
           {steps.length > 0 ? `${done}/${steps.length} 步` : ''}
           {totalMs > 0 ? ` · ${formatDuration(totalMs)}` : ''}
@@ -60,17 +58,16 @@ export default function StepLog({ steps, running, streamText, totalMs }: StepLog
       </div>
 
       {steps.length === 0 ? (
-        <p className="steplog-hint">描述你想要的页面，这里会逐步显示每一步真实做了什么。</p>
+        <p className="steplog-hint">
+          每一步真实做了什么都会记在这里：解析需求 → 组装上下文 → 生成代码 → 自检 → 装载预览。
+        </p>
       ) : (
         <StepList steps={steps} />
       )}
 
       {running && streamText ? (
         <div className="stream-box">
-          <div className="stream-head">
-            <IconSpark size={12} />
-            模型实时输出
-          </div>
+          <div className="stream-head">模型实时输出</div>
           <pre>{streamText.slice(-1200)}</pre>
         </div>
       ) : null}

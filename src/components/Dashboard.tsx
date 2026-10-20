@@ -12,7 +12,7 @@ import { go } from '../lib/router'
 import { timeAgo } from '../lib/format'
 import { toast } from '../lib/toast'
 import { DEFAULT_QUERY, currentVersionOf, filterProjects, isFiltering, type ProjectQuery } from '../lib/projects'
-import { IconBolt, IconCode, IconLayers, IconPlus, IconRefresh, IconSettings, IconShare, IconStar, IconTrash } from './Icons'
+import { IconLayers, IconPlus, IconRefresh, IconSettings, IconStar, IconTrash } from './Icons'
 
 export default function Dashboard() {
   const { projects, settings } = useStore()
@@ -36,37 +36,28 @@ export default function Dashboard() {
     <div className="page page-home">
       <header className="hero">
         <div className="hero-tags">
-          <span className="pill pill-accent">
-            <IconBolt size={13} />
-            当前引擎：{provider.name}
-          </span>
+          <span className="pill pill-accent">当前引擎：{provider.name}</span>
           {settings.activeProviderId === 'demo' ? (
-            <span className="pill">无需 API Key，开箱即测</span>
+            <span className="pill">演示引擎 · 无需 API Key</span>
           ) : settings.activeProviderId === STATION_PROVIDER_ID ? (
             // 跟下面那句「Key 只存在你的浏览器里」正相反，所以必须单开一支：
             // 内置模型的 Key 在页面里，说成"只存在你浏览器里"是错的，尽管访客也拿不到它。
-            <span className="pill">
-              <IconBolt size={13} />
-              本站内置 {stationModel()}，无需配置
-            </span>
+            <span className="pill">本站内置 {stationModel()} · 无需配置</span>
           ) : settings.activeProviderId === HOSTED_PROVIDER_ID ? (
             // 把剩余额度放在首屏：访客不用点进设置就知道"这个还能用几次"，
             // 额度见底时也有心理预期，而不是生成到一半突然被拒。
             <span className="pill">
-              <IconBolt size={13} />
-              {`本站付费调用 ${hosted.model ?? '真模型'}`}
-              {typeof hosted.remainingForYou === 'number' ? `，你今天还剩 ${hosted.remainingForYou} 次` : ''}
+              {`本站额度调用 ${hosted.model ?? '内置模型'}`}
+              {typeof hosted.remainingForYou === 'number' ? ` · 今日剩余 ${hosted.remainingForYou} 次` : ''}
             </span>
           ) : (
             <span className="pill">Key 只存在你的浏览器里</span>
           )}
         </div>
-        <h1>
-          说一句话，<span className="grad">生成一个能跑的网页应用</span>
-        </h1>
+        <h1>写下需求，产出一份能直接运行的单文件应用</h1>
         <p className="hero-sub">
-          Forge 把你的需求变成一份能直接运行的单文件应用：真实可交互、数据真的会保存，
-          而不是一段静态截图或伪代码。一句话起头，接下来想怎么改都行。
+          Forge 先把核心交互跑通，再按你的追加描述继续迭代。产出是真实的单文件 HTML，
+          数据真的会保存；每一版都会存档，可以回滚、导出源码，或者打包成一条链接发出去。
         </p>
 
         <Composer
@@ -77,7 +68,7 @@ export default function Dashboard() {
           submitLabel="生成应用"
           under={
             <div className="showcase">
-              <span className="showcase-label"><IconRefresh size={13} />试试这些：</span>
+              <span className="showcase-label"><IconRefresh size={13} />示例需求：</span>
               {DEMO_SHOWCASE.map((s) => (
                 <button key={s.label} className="chip" onClick={() => setDraft(s.prompt)} type="button">
                   {s.label}
@@ -89,25 +80,16 @@ export default function Dashboard() {
 
         <div className="feature-row">
           <div className="feature">
-            <IconCode size={16} />
-            <div>
-              <strong>产物就是真代码</strong>
-              <em>单文件 HTML + CSS + JS，任何浏览器直接打开就能用</em>
-            </div>
+            <strong>产出是源码文件</strong>
+            <em>单文件 HTML + CSS + JS，浏览器直接打开就能用</em>
           </div>
           <div className="feature">
-            <IconRefresh size={16} />
-            <div>
-              <strong>对话式迭代</strong>
-              <em>「再加个暗色主题」就能改，每次改动都会自动存档，随时能回退</em>
-            </div>
+            <strong>按描述迭代</strong>
+            <em>「再加个暗色主题」就能改，每次改动自动存档，随时回退</em>
           </div>
           <div className="feature">
-            <IconShare size={16} />
-            <div>
-              <strong>免服务器分享</strong>
-              <em>整份产物打包进一条链接，对方打开就能玩</em>
-            </div>
+            <strong>分享不用服务器</strong>
+            <em>整份产物打包进一条链接，对方打开就能用</em>
           </div>
         </div>
       </header>
@@ -151,7 +133,7 @@ export default function Dashboard() {
 
         {projects.length === 0 ? (
           <div className="empty">
-            <p>还没有应用。上面写一句需求，或者点一个示例试试。</p>
+            <p>还没有应用。在上面写下需求，或者点一个示例需求开始。</p>
           </div>
         ) : rows.length === 0 ? (
           <div className="empty">

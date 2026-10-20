@@ -15,7 +15,7 @@ import { IconClose, IconUser } from './components/Icons'
 
 export default function App() {
   const route = useRoute()
-  const { settings, persistError, account } = useStore()
+  const { settings, persistError, account, ownerId, projects } = useStore()
   const [settingsOpen, setSettingsOpen] = useState(route.name === 'settings')
   const [authOpen, setAuthOpen] = useState(false)
 
@@ -26,6 +26,18 @@ export default function App() {
   useEffect(() => {
     if (route.name === 'settings') setSettingsOpen(true)
   }, [route.name])
+
+  /*
+   * 路由指向的应用在当前分区里不存在就回首页。
+   *
+   * 这一条是给"切账号"兜底的：退出登录会把分区换成访客那份，地址栏里却还留着上一个账号的
+   * #/p/xxx —— 那个应用在新分区里根本不存在。不处理的话用户看到的是「这个应用不存在或已被
+   * 删除。」配一条属于别人的旧地址，既像出了故障，又把这串 id 留在了他的浏览记录里。
+   * 顺带把"删掉正在看的应用"也收成同一个结果：回到首页，而不是停在一张空页上。
+   */
+  useEffect(() => {
+    if (route.name === 'project' && !projects.some((p) => p.id === route.id)) go('/')
+  }, [route, projects])
 
   /*
    * 开机替访客选一次引擎，让他"点开就能用"。两条策略都是纯函数，这里只负责"探、应用、通知"。
@@ -134,7 +146,13 @@ export default function App() {
         ) : null}
 
         {route.name === 'project' ? (
-          <Workbench key={route.id} projectId={route.id} />
+          /*
+           * key 里带上 ownerId：只写 route.id 的话，换账号时 id 没变，React 会复用同一个
+           * Workbench 实例，于是上一个账号的草稿、步骤列表、正在流式输出的文本都跟着留在
+           * 界面上 —— 分区换了，内存里的界面状态没换。加上 ownerId 就变成"换账号 = 重挂组件"，
+           * 局部状态跟着一起清掉，不需要在 Workbench 里手写一堆 reset。
+           */
+          <Workbench key={`${ownerId}:${route.id}`} projectId={route.id} />
         ) : (
           <Dashboard />
         )}

@@ -71,7 +71,7 @@ export const DEMO_PROVIDER: ProviderDef = {
   baseUrl: '',
   models: ['forge-template-v1'],
   keyUrl: '',
-  hint: '不需要任何 API Key。用内置模板库直接生成可运行的真实应用，开箱即测。',
+  hint: '不需要任何 API Key，用内置模板库生成可直接运行的真实应用，复制走就能用。',
 }
 
 /** 托管模式：产品方出钱、访客零配置。没有 keyUrl —— 因为访客根本不需要填 Key。 */

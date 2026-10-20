@@ -17,7 +17,7 @@ import { checkRunnable } from '../lib/sandbox'
 import { analyzeEnhancements } from '../lib/enhance'
 import { buildRun } from '../lib/run'
 import type { GenRun, GenStepState, SharePayload } from '../types'
-import { IconBack, IconCode, IconDownload, IconHistory, IconPlay, IconShare, IconSpark } from './Icons'
+import { IconBack, IconCode, IconDownload, IconHistory, IconPlay, IconShare } from './Icons'
 
 type Tab = 'preview' | 'code'
 
@@ -276,10 +276,7 @@ export default function Workbench({ projectId }: { projectId: string }) {
           onChange={(e) => renameProject(project.id, e.target.value)}
           aria-label="应用名称"
         />
-        <span className="pill pill-soft">
-          <IconSpark size={12} />
-          {provider.name}
-        </span>
+        <span className="pill pill-soft">{provider.name}</span>
         {currentVersion ? <span className="tag">v{currentVersion.index}</span> : null}
 
         <div className="work-head-right">

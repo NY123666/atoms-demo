@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { SANDBOX_ATTRS, instrument } from '../lib/sandbox'
-import { IconBolt, IconClose, IconExternal, IconRefresh, IconSpark } from './Icons'
+import { IconClose, IconExternal, IconRefresh } from './Icons'
 
 interface PreviewPaneProps {
   html: string | null
@@ -129,16 +129,12 @@ export default function PreviewPane({
 
       {runtimeError ? (
         <div className="runtime-error">
-          <span className="re-icon">
-            <IconBolt size={13} />
-          </span>
           <div className="re-body">
             <strong>运行时报错</strong>
             <p>{runtimeError}</p>
           </div>
           <button className="btn btn-primary btn-sm" onClick={onRepair} disabled={busy} type="button">
-            <IconSpark size={13} />
-            {busy ? '修复中…' : '让智能体修一下'}
+            {busy ? '修复中…' : '按报错修一版'}
           </button>
           <button className="icon-btn" onClick={onDismissError} type="button" title="忽略">
             <IconClose size={13} />

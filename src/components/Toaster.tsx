@@ -1,5 +1,5 @@
 import { useToasts, dismissToast } from '../lib/toast'
-import { IconCheck, IconClose, IconBolt } from './Icons'
+import { IconCheck, IconClose, IconInfo } from './Icons'
 
 export default function Toaster() {
   const toasts = useToasts()
@@ -10,7 +10,7 @@ export default function Toaster() {
       {toasts.map((t) => (
         <div key={t.id} className={`toast toast-${t.kind}`}>
           <span className="toast-icon">
-            {t.kind === 'success' ? <IconCheck size={14} /> : t.kind === 'error' ? <IconClose size={14} /> : <IconBolt size={14} />}
+            {t.kind === 'success' ? <IconCheck size={14} /> : t.kind === 'error' ? <IconClose size={14} /> : <IconInfo size={14} />}
           </span>
           <div className="toast-msg">{t.message}</div>
           {t.actionLabel && t.onAction ? (

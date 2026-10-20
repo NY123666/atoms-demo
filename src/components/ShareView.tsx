@@ -6,7 +6,7 @@ import { addMessage, addVersion, createProject } from '../lib/store'
 import { formatDateTime } from '../lib/format'
 import { go } from '../lib/router'
 import { toast } from '../lib/toast'
-import { IconDownload, IconExternal, IconLayers, IconShare, IconSpark } from './Icons'
+import { IconDownload, IconExternal, IconLayers, IconShare } from './Icons'
 
 export default function ShareView({ code }: { code: string }) {
   const [payload, setPayload] = useState<SharePayload | null>(null)
@@ -86,7 +86,6 @@ export default function ShareView({ code }: { code: string }) {
           {payload ? (
             <>
               <button className="btn btn-ghost btn-sm" onClick={fork} type="button">
-                <IconSpark size={13} />
                 导入到我的工作区
               </button>
               <button className="btn btn-ghost btn-sm" onClick={openStandalone} type="button">

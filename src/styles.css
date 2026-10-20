@@ -2,46 +2,55 @@
    Forge · 全局样式
    设计取舍：不引 UI 框架，全部用 CSS 变量 + 少量原子类手写。
    好处是产物零依赖、体积小、主题切换只需要换一组变量。
+
+   视觉是这个文件的另一半取舍，写下来免得被改回去：
+     · 暖石墨底 + 一个铜色强调色。没有第二个强调色，也就没有渐变可言 ——
+       界面上的"重点"只能靠铜色和字重来表达，不靠发光、不靠彩色阴影。
+     · 圆角一律偏小（8 / 10px），胶囊形只在极小的状态标上出现。
+     · 动效只服务于"正在发生的事"（执行中的步骤、加载中的骨架），
+       不做为了让页面显得活泼的位移和缩放。
+   这样它看上去才像一件工具，而不是一张产品宣传页。
    ========================================================================== */
 
 :root {
-  --bg: #0a0c11;
-  --panel: #11141b;
-  --panel-2: #171b25;
-  --panel-3: #1e2331;
-  --line: rgba(255, 255, 255, 0.09);
+  --bg: #100f0d;
+  --panel: #181613;
+  --panel-2: #201d19;
+  --panel-3: #292520;
+  --line: rgba(255, 255, 255, 0.085);
   --line-strong: rgba(255, 255, 255, 0.16);
-  --text: #e9edf7;
-  --muted: #8b95ab;
-  --muted-2: #6a7387;
-  --accent: #5b8cff;
-  --accent-2: #8b5cff;
-  --accent-soft: rgba(91, 140, 255, 0.14);
-  --ok: #34d399;
-  --bad: #f87171;
-  --warn: #fbbf24;
-  --shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
-  --radius: 12px;
+  --text: #eae5dd;
+  --muted: #9c948a;
+  --muted-2: #776f64;
+  --accent: #c8792f;
+  --accent-soft: rgba(200, 121, 47, 0.16);
+  /* 压在 accent 上的文字色。铜色偏亮，配深墨字比配白字更清楚，也更像黄铜铭牌。 */
+  --on-accent: #1a1207;
+  --ok: #5fbf8a;
+  --bad: #e2685c;
+  --warn: #d9b23c;
+  --shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+  --radius: 8px;
   color-scheme: dark;
 }
 
 :root[data-theme='light'] {
-  --bg: #f5f7fb;
+  --bg: #f6f4f1;
   --panel: #ffffff;
-  --panel-2: #f2f5fa;
-  --panel-3: #e9eef7;
-  --line: rgba(16, 24, 44, 0.1);
-  --line-strong: rgba(16, 24, 44, 0.2);
-  --text: #141a26;
-  --muted: #5c6779;
-  --muted-2: #7b869a;
-  --accent: #2f6bff;
-  --accent-2: #7048ff;
-  --accent-soft: rgba(47, 107, 255, 0.1);
-  --ok: #059669;
-  --bad: #dc2626;
-  --warn: #b45309;
-  --shadow: 0 10px 28px rgba(20, 30, 60, 0.1);
+  --panel-2: #f1eeea;
+  --panel-3: #e7e3dd;
+  --line: rgba(28, 22, 14, 0.11);
+  --line-strong: rgba(28, 22, 14, 0.22);
+  --text: #1c1917;
+  --muted: #6b635a;
+  --muted-2: #857c72;
+  --accent: #a35a17;
+  --accent-soft: rgba(163, 90, 23, 0.1);
+  --on-accent: #ffffff;
+  --ok: #1f7a4d;
+  --bad: #b3352b;
+  --warn: #8a6100;
+  --shadow: 0 8px 22px rgba(40, 30, 20, 0.1);
   color-scheme: light;
 }
 
@@ -147,9 +156,8 @@ pre {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #fff;
-  box-shadow: 0 6px 18px rgba(91, 140, 255, 0.28);
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -221,8 +229,8 @@ pre {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 10px;
-  border-radius: 999px;
+  padding: 4px 9px;
+  border-radius: 6px;
   background: var(--panel-2);
   border: 1px solid var(--line);
   color: var(--muted);
@@ -280,8 +288,8 @@ pre {
 }
 
 .chip {
-  padding: 5px 11px;
-  border-radius: 999px;
+  padding: 5px 10px;
+  border-radius: 6px;
   border: 1px dashed var(--line-strong);
   color: var(--muted);
   font-size: 12px;
@@ -380,13 +388,12 @@ pre {
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #fff;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--on-accent);
   font-weight: 800;
   font-size: 16px;
   flex: none;
-  box-shadow: 0 6px 16px rgba(91, 140, 255, 0.3);
 }
 
 .brand-mark.sm {
@@ -659,7 +666,7 @@ pre {
   gap: 6px;
   max-width: 52vw;
   padding: 6px 11px;
-  border-radius: 999px;
+  border-radius: 7px;
   border: 1px solid var(--line);
   background: var(--panel-2);
   color: var(--text);
@@ -690,16 +697,9 @@ pre {
 }
 
 .hero h1 {
-  font-size: 34px;
-  line-height: 1.35;
-  letter-spacing: -0.4px;
-}
-
-.grad {
-  background: linear-gradient(100deg, var(--accent), var(--accent-2));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  font-size: 27px;
+  line-height: 1.4;
+  letter-spacing: -0.2px;
 }
 
 .hero-sub {
@@ -719,18 +719,12 @@ pre {
 
 .feature {
   display: flex;
-  gap: 10px;
-  padding: 14px;
+  flex-direction: column;
+  gap: 4px;
+  padding: 13px 14px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--panel);
-  color: var(--accent);
-}
-
-.feature div {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
 }
 
 .feature strong {
@@ -903,12 +897,11 @@ pre {
   border-radius: var(--radius);
   background: var(--panel);
   cursor: pointer;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.15s ease;
 }
 
 .project-card:hover {
   border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  transform: translateY(-2px);
 }
 
 .pc-top {
@@ -958,10 +951,9 @@ pre {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--line-strong);
-  border-radius: 16px;
+  border-radius: 10px;
   background: var(--panel);
   padding: 12px 14px 8px;
-  box-shadow: var(--shadow);
 }
 
 .composer:focus-within {
@@ -969,8 +961,7 @@ pre {
 }
 
 .composer-sm {
-  border-radius: 12px;
-  box-shadow: none;
+  border-radius: 8px;
   padding: 10px 12px 6px;
 }
 
@@ -1206,16 +1197,19 @@ pre {
 
 .msg-bubble {
   padding: 9px 12px;
-  border-radius: 12px;
+  border-radius: 8px;
   font-size: 13px;
   line-height: 1.72;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
+/* 用户的提问用铜色淡底 + 铜色描边，而不是一整块实色气泡：实色填充会把对话区变成
+   一块彩色告示板，读起来比写需求的正文本身还抢眼。 */
 .msg-user .msg-bubble {
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #fff;
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
+  color: var(--text);
   border-bottom-right-radius: 4px;
 }
 
@@ -1827,8 +1821,9 @@ pre {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(4, 6, 12, 0.62);
-  backdrop-filter: blur(3px);
+  /* 不用毛玻璃：模糊背景会让底下的界面像"糊了一层"，
+     纯半透明遮罩已经足够把注意力收进弹窗，而且不吃 GPU。 */
+  background: rgba(8, 7, 6, 0.72);
 }
 
 .modal {
@@ -1837,7 +1832,7 @@ pre {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--line-strong);
-  border-radius: 16px;
+  border-radius: 10px;
   background: var(--panel);
   box-shadow: var(--shadow);
   overflow: hidden;
@@ -2205,9 +2200,9 @@ pre {
   justify-content: center;
   width: 34px;
   height: 34px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #fff;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--on-accent);
   font-weight: 700;
   flex: none;
 }
@@ -2242,7 +2237,7 @@ pre {
 .auth-other {
   padding: 3px 9px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 6px;
   background: var(--panel-2);
   color: var(--muted);
   font-size: 11.5px;

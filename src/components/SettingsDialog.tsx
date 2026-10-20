@@ -6,7 +6,7 @@ import { updateProviderSettings, updateSettings, useStore, resetEverything } fro
 import { testConnection } from '../lib/llm'
 import type { TestResult } from '../lib/llm'
 import { toast } from '../lib/toast'
-import { IconBolt, IconCheck, IconClose, IconExternal, IconSettings, IconSpark } from './Icons'
+import { IconCheck, IconClose, IconExternal, IconSettings } from './Icons'
 
 export default function SettingsDialog({ onClose }: { onClose: () => void }) {
   const { settings } = useStore()
@@ -138,10 +138,7 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
           </div>
 
           <div className="provider-form">
-            <p className="pf-hint">
-              <IconBolt size={13} />
-              {def.hint}
-            </p>
+            <p className="pf-hint">{def.hint}</p>
 
             {isDemo ? (
               <div className="pf-demo">
@@ -178,7 +175,7 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
                   写清楚了，懂的人自然知道该切到下面自带 Key 的方案。
                 */}
                 <p className="pf-warn">
-                  注意：这个 Key 是打包进网页的，懂技术的人查看页面源码就能找到它（这是"开箱即用"的代价）。
+                  注意：这个 Key 是打包进网页的，懂技术的人查看页面源码就能找到它 —— 零配置的代价就是藏不住。
                   请不要用它处理机密或敏感数据。介意的话，用下面任意一家「自带 Key」的服务商 ——
                   那种方式下 Key 只存在你自己的浏览器里。
                 </p>
@@ -333,7 +330,6 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
                   onClick={() => useProvider(selected, def.name)}
                   type="button"
                 >
-                  <IconSpark size={14} />
                   设为当前引擎
                 </button>
               </div>
