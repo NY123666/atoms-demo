@@ -1,6 +1,7 @@
 import type { BuildCtx } from './shared'
 import { buildTodo } from './todo'
 import { buildSnake } from './snake'
+import { buildBoard2048 } from './board2048'
 import { buildLedger } from './ledger'
 import { buildPomodoro } from './pomodoro'
 import { buildDashboard } from './dashboard'
@@ -22,6 +23,15 @@ export const TEMPLATES: TemplateDef[] = [
     keywords: ['贪吃蛇', 'snake', '小游戏', '游戏', 'game', 'canvas', '街机'],
     build: buildSnake,
     describes: 'Canvas 渲染的游戏循环 + 键盘与触屏双输入 + 最高分持久化',
+  },
+  {
+    id: 'board2048',
+    name: '数字棋盘（2048 类）',
+    /* 「方块」「棋盘」这类词要小心：宽泛到能抢走别的需求就得不偿失了，
+       所以这里不放光秃秃的「数字」「合并」——"把两张表合并"必须还留给通用工作台。 */
+    keywords: ['2048', '数字合并', '合并数字', '合并方块', '数字方块', '数字棋盘', '棋盘', '方块', '数字游戏', '益智'],
+    build: buildBoard2048,
+    describes: '背景格与数字块共用一套坐标 + 容器尺寸量出来后再算字号 + 合并/计分/最高分持久化',
   },
   {
     id: 'pomodoro',

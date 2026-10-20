@@ -54,6 +54,9 @@ export default function Workbench({ projectId }: { projectId: string }) {
   const [tab, setTab] = useState<Tab>('preview')
   const [runtimeError, setRuntimeError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
+  // ready 是布尔值，切设备重挂 iframe 时它可能一直是 true，光靠它触发不了重渲染，
+  // 于是「装载中…」会永远不再出现。用计数代替：每次产物报到都 +1。
+  const [readyPing, setReadyPing] = useState(0)
   const [showTimeline, setShowTimeline] = useState(false)
 
   const abortRef = useRef<AbortController | null>(null)
@@ -82,6 +85,7 @@ export default function Workbench({ projectId }: { projectId: string }) {
       if (!data || typeof data !== 'object' || typeof data.__forge !== 'string') return
       if (data.__forge === 'ready') {
         setReady(true)
+        setReadyPing((n) => n + 1)
         setRuntimeError(null)
       } else if (data.__forge === 'runtime-error') {
         setRuntimeError(data.message ? String(data.message).slice(0, 300) : '未知运行时错误')
@@ -299,6 +303,7 @@ export default function Workbench({ projectId }: { projectId: string }) {
               html={currentVersion?.html ?? null}
               versionKey={currentVersion?.id ?? null}
               ready={ready}
+              readyPing={readyPing}
               runtimeError={runtimeError}
               busy={running}
               onRepair={() => {

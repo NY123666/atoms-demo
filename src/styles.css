@@ -1382,6 +1382,16 @@ pre {
   box-shadow: var(--shadow);
 }
 
+/* 预览区还没量到尺寸时占位：这一小会儿不挂 iframe，产物才不会在 0 宽度下先算一次布局。 */
+.frame-pending {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-2);
+  font-size: 12.5px;
+}
+
 .frame-tablet .frame {
   width: 834px;
   flex: none;
