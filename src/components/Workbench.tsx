@@ -3,54 +3,25 @@ import ChatPanel from './ChatPanel'
 import PreviewPane from './PreviewPane'
 import CodePane from './CodePane'
 import VersionTimeline from './VersionTimeline'
-import { addMessage, addVersion, deleteVersion, getProject, renameProject, setCurrentVersion, updateMessage, useStore } from '../lib/store'
-import { runGeneration } from '../lib/generate'
-import type { NewVersion } from '../lib/generate'
-import { deriveTitle } from '../lib/intent'
+import { deleteVersion, renameProject, setCurrentVersion, useStore } from '../lib/store'
+import { abortRun, runProject, useRun } from '../lib/runSession'
 import { findProvider } from '../lib/providers'
 import { takeHandoff } from '../lib/handoff'
 import { go } from '../lib/router'
-import { copyText, formatBytes, formatDuration } from '../lib/format'
+import { copyText, formatBytes } from '../lib/format'
 import { buildShareUrl, encodeShare, downloadHtml, SHARE_WARN_LENGTH } from '../lib/share'
 import { toast } from '../lib/toast'
-import { checkRunnable } from '../lib/sandbox'
 import { analyzeEnhancements } from '../lib/enhance'
-import { buildRun } from '../lib/run'
-import type { GenRun, GenStepState, SharePayload } from '../types'
+import type { SharePayload } from '../types'
 import { IconBack, IconCode, IconDownload, IconHistory, IconPlay, IconShare } from './Icons'
 
 type Tab = 'preview' | 'code'
-
-function errorText(err: unknown): string {
-  return err instanceof Error ? err.message : String(err)
-}
-
-function isAbort(err: unknown): boolean {
-  return err instanceof DOMException && err.name === 'AbortError'
-}
-
-function buildSummary(version: NewVersion, index: number): string {
-  const check = checkRunnable(version.html)
-  const bits = [
-    `已生成 v${index}「${version.label}」，耗时 ${formatDuration(version.durationMs)}。`,
-    `产物是 ${formatBytes(version.html.length)} 的单文件 HTML，含 ${version.html.split('<script').length - 1} 段脚本${
-      check.ok ? '，静态自检通过' : `，自检有 ${check.reasons.length} 条提醒`
-    }。`,
-    version.note ? `\n${version.note}` : '',
-    version.autoFixed ? '\n首次产物没通过自检，已自动重试并修复一次。' : '',
-    '\n右侧可以直接操作它，也可以在「代码」里看完整源码。想改哪里直接说。',
-  ]
-  return bits.filter(Boolean).join('')
-}
 
 export default function Workbench({ projectId }: { projectId: string }) {
   const state = useStore()
   const project = state.projects.find((p) => p.id === projectId)
 
   const [draft, setDraft] = useState('')
-  const [steps, setSteps] = useState<GenStepState[]>([])
-  const [running, setRunning] = useState(false)
-  const [streamText, setStreamText] = useState('')
   const [totalMs, setTotalMs] = useState(0)
   const [tab, setTab] = useState<Tab>('preview')
   const [runtimeError, setRuntimeError] = useState<string | null>(null)
@@ -60,17 +31,26 @@ export default function Workbench({ projectId }: { projectId: string }) {
   const [readyPing, setReadyPing] = useState(0)
   const [showTimeline, setShowTimeline] = useState(false)
 
-  const abortRef = useRef<AbortController | null>(null)
-  const runningRef = useRef(false)
-  // 生成链路每次 onStep 都会发一份最新步骤，这里镜像一份，结束存档时用它落盘
-  const stepsRef = useRef<GenStepState[]>([])
+  // 生成会话住在组件外（runSession.ts）：切去别的项目时生成不中断，
+  // 回来时从快照恢复现场 —— 还在跑就显示进度，已经跑完就显示执行记录。
+  const run = useRun(projectId)
+  const { running, steps, streamText, startedAt } = run
+
   const autoRunRef = useRef(false)
   const projectRef = useRef(project)
   projectRef.current = project
-  const settingsRef = useRef(state.settings)
-  settingsRef.current = state.settings
   const draftRef = useRef(draft)
   draftRef.current = draft
+
+  /* 计时器只管展示：会话记下 startedAt，这里跟着它把耗时推出来 */
+  useEffect(() => {
+    if (!running) {
+      setTotalMs(startedAt > 0 ? Date.now() - startedAt : 0)
+      return
+    }
+    const timer = window.setInterval(() => setTotalMs(Date.now() - startedAt), 200)
+    return () => window.clearInterval(timer)
+  }, [running, startedAt])
 
   const versions = project?.versions ?? []
   const currentVersion =
@@ -103,110 +83,13 @@ export default function Workbench({ projectId }: { projectId: string }) {
     setRuntimeError(null)
   }, [currentVersion?.id])
 
-  useEffect(() => {
-    return () => {
-      abortRef.current?.abort()
-    }
-  }, [])
-
   /* -------------------------------- 生成 -------------------------------- */
-  async function run(text: string) {
-    const promptText = text.trim()
-    if (!promptText || runningRef.current) return
-    const p = getProject(projectId)
-    if (!p) return
-
-    const previous = p.versions.find((v) => v.id === p.currentVersionId) ?? p.versions[p.versions.length - 1]
-    const previousHtml = previous?.html ?? null
-
-    addMessage(projectId, { role: 'user', content: promptText })
-    const assistant = addMessage(projectId, { role: 'assistant', content: '正在生成，请稍候…' })
-
+  /* 状态和编排都交给 runSession.ts，这里只负责发起 + 收起输入现场 */
+  function launch(text: string) {
     setDraft('')
-    setSteps([])
-    stepsRef.current = []
-    setStreamText('')
     setRuntimeError(null)
-    setTotalMs(0)
     setTab('preview')
-
-    const controller = new AbortController()
-    abortRef.current = controller
-    runningRef.current = true
-    setRunning(true)
-
-    // 生成前定下这次走的是哪条链路，结束存档时好如实标注来源
-    const runSource: GenRun['source'] = settingsRef.current.activeProviderId === 'demo' ? 'demo' : 'llm'
-    const startedAt = Date.now()
-    const timer = window.setInterval(() => setTotalMs(Date.now() - startedAt), 200)
-
-    try {
-      const version = await runGeneration({
-        prompt: promptText,
-        previousHtml,
-        revision: p.versions.length,
-        settings: settingsRef.current,
-        onStep: (s) => {
-          stepsRef.current = s
-          setSteps(s)
-        },
-        onDelta: setStreamText,
-        signal: controller.signal,
-      })
-
-      const run = buildRun({
-        source: version.source,
-        status: 'done',
-        prompt: promptText,
-        startedAt,
-        finishedAt: Date.now(),
-        steps: stepsRef.current,
-        autoFixed: version.autoFixed,
-      })
-      const saved = addVersion(projectId, { ...version, label: version.label || deriveTitle(promptText), run })
-      const index = saved?.index ?? p.versions.length + 1
-      updateMessage(projectId, assistant.id, {
-        content: buildSummary(version, index),
-        versionId: saved?.id,
-        run,
-      })
-      toast(`已生成 v${index}`, 'success')
-    } catch (err) {
-      if (isAbort(err)) {
-        updateMessage(projectId, assistant.id, {
-          content: '已手动停止本次生成。这一版没有存档，可以重新发起。',
-          run: buildRun({
-            source: runSource,
-            status: 'stopped',
-            prompt: promptText,
-            startedAt,
-            steps: stepsRef.current,
-            error: '手动停止',
-          }),
-        })
-      } else {
-        const msg = errorText(err)
-        updateMessage(projectId, assistant.id, {
-          content: `生成失败：${msg}`,
-          run: buildRun({
-            source: runSource,
-            status: 'error',
-            prompt: promptText,
-            startedAt,
-            steps: stepsRef.current,
-            error: msg,
-          }),
-        })
-        toast('生成失败，详情见对话', 'error', { duration: 6000 })
-      }
-    } finally {
-      window.clearInterval(timer)
-      setTotalMs(Date.now() - startedAt)
-      setStreamText('')
-      setRunning(false)
-      runningRef.current = false
-      abortRef.current = null
-    }
+    void runProject(projectId, text)
   }
 
   /* --------------------- 首页交接过来的第一句需求 --------------------- */
@@ -217,11 +100,11 @@ export default function Workbench({ projectId }: { projectId: string }) {
     const prompt = takeHandoff(projectId)
     if (!prompt) return
     autoRunRef.current = true
-    void run(prompt)
+    launch(prompt)
   }, [projectId, project])
 
   function stop() {
-    abortRef.current?.abort()
+    abortRun(projectId)
   }
 
   async function onShare() {
@@ -319,7 +202,7 @@ export default function Workbench({ projectId }: { projectId: string }) {
             project={project}
             draft={draft}
             onDraft={setDraft}
-            onSubmit={() => void run(draftRef.current)}
+            onSubmit={() => launch(draftRef.current)}
             running={running}
             onStop={stop}
             steps={steps}
@@ -344,8 +227,7 @@ export default function Workbench({ projectId }: { projectId: string }) {
               busy={running}
               onRepair={() => {
                 const detail = runtimeError ?? ''
-                setRuntimeError(null)
-                void run(
+                launch(
                   `上一版页面运行时报错：${detail}。请定位原因并修复，保持现有功能不变，仍然只输出完整的单文件 HTML。`,
                 )
               }}
