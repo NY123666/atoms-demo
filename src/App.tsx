@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar'
 import Dashboard from './components/Dashboard'
 import Workbench from './components/Workbench'
 import SettingsDialog from './components/SettingsDialog'
+import AuthDialog from './components/AuthDialog'
 import ShareView from './components/ShareView'
 import Toaster from './components/Toaster'
 import { go, useRoute } from './lib/router'
@@ -10,12 +11,13 @@ import { dismissPersistError, getState, updateSettings, useStore } from './lib/s
 import { decideHostedSwitch, hostedEnvBase, refreshHosted } from './lib/hosted'
 import { decideStationSwitch } from './lib/station'
 import { toast } from './lib/toast'
-import { IconClose } from './components/Icons'
+import { IconClose, IconUser } from './components/Icons'
 
 export default function App() {
   const route = useRoute()
-  const { settings, persistError } = useStore()
+  const { settings, persistError, account } = useStore()
   const [settingsOpen, setSettingsOpen] = useState(route.name === 'settings')
+  const [authOpen, setAuthOpen] = useState(false)
 
   useEffect(() => {
     document.documentElement.dataset.theme = settings.theme
@@ -100,7 +102,26 @@ export default function App() {
 
   return (
     <div className="shell">
-      <Sidebar activeProjectId={activeProjectId} />
+      <Sidebar activeProjectId={activeProjectId} onOpenAuth={() => setAuthOpen(true)} />
+
+      {/*
+        窄屏（≤900px）侧边栏整个隐藏，账号入口会跟着一起消失，所以这里另给一条顶栏。
+        桌面端它是 display:none —— 账号入口始终只出现在一个地方，不会重复。
+      */}
+      <div className="topbar">
+        <button className="brand brand-sm" onClick={() => go('/')} type="button">
+          <span className="brand-mark sm">F</span>
+          <strong>Forge</strong>
+        </button>
+        <button
+          className={`account-chip ${account ? 'on' : ''}`}
+          onClick={() => setAuthOpen(true)}
+          type="button"
+        >
+          <IconUser size={13} />
+          {account ? account.displayName : '访客模式'}
+        </button>
+      </div>
 
       <main className="main">
         {persistError ? (
@@ -120,6 +141,7 @@ export default function App() {
       </main>
 
       {settingsOpen ? <SettingsDialog onClose={closeSettings} /> : null}
+      {authOpen ? <AuthDialog onClose={() => setAuthOpen(false)} /> : null}
       <Toaster />
     </div>
   )

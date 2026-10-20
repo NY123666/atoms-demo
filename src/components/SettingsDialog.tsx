@@ -371,7 +371,11 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
           <button
             className="btn btn-ghost btn-sm danger"
             onClick={() => {
-              if (window.confirm('清空全部本地数据（所有应用、版本与 Key）？此操作不可撤销。')) {
+              if (
+                window.confirm(
+                  '清空全部本地数据（这台浏览器上的所有账号、应用、版本与 Key）？此操作不可撤销。',
+                )
+              ) {
                 resetEverything()
                 toast('已清空本地数据', 'info')
                 onClose()

@@ -84,3 +84,7 @@ export const IconExternal = (p: IconProps) =>
   svg(<path d="M14 4h6v6M20 4l-8 8M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" />, p)
 export const IconLogo = (p: IconProps) =>
   svg(<path d="M8 19V5h8M8 12h6" />, { ...p, size: p.size ?? 18 })
+export const IconUser = (p: IconProps) =>
+  svg(<path d="M12 12a4 4 0 100-8 4 4 0 000 8zM5 20a7 7 0 0114 0" />, p)
+export const IconLock = (p: IconProps) =>
+  svg(<path d="M8 11V8a4 4 0 018 0v3M5 11h14v9H5z" />, p)

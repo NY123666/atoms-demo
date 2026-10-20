@@ -8,7 +8,8 @@
  * 4. 分享链接的压缩编解码往返无损；
  * 5. 首页检索/筛选的纯函数判定（和 UI 共用同一份代码，见 lib/projects.ts）。
  *
- * 附加两节是"策略类"的：提示词组装、以及本站内置模型的开机切换策略。
+ * 附加若干节是"策略/状态类"的：提示词组装、内置模型的开机切换策略、生成执行记录的存档，
+ * 以及最后的**本机账号分区与其持久化往返**。
  * 它们的共同点是**不碰网络**，所以放在这里当硬关卡 —— 每次提交都能验，不花一分钱。
  *
  * 运行：npm run smoke
@@ -605,6 +606,161 @@ async function main(): Promise<void> {
     const badSteps = rp?.messages.find((m) => m.id === 'm-bad')?.run?.steps
     ok('往返｜失败的步骤终态如实（error + 未执行的 pending）', badSteps?.[1]?.status === 'error' && badSteps?.[2]?.status === 'pending')
     ok('往返｜错误原因一起还原', rp?.messages.find((m) => m.id === 'm-bad')?.run?.error === '模型没有返回可用的 HTML。')
+  }
+
+  console.log('— 附加：本机账号与数据分区 —')
+  {
+    /*
+     * 账号这一层不碰网络、不碰 DOM，可以在 Node 里整条跑：Node 24 自带 WebCrypto（crypto.subtle）、
+     * btoa、TextEncoder，localStorage 换成内存替身 —— 这次的替身把 length/key() 也实现了，
+     * 因为 clearAll 会去扫 `forge:` 开头的 key。store.ts 用到了 window.setTimeout，一并替上。
+     *
+     * 这里验的是用户提的那句需求："退出再登录，仍能找到自己的项目、聊天和代码"，
+     * 外加两条容易写错、写错了很难发现的边界：挂起中的改动不能串分区、密码不能落明文。
+     */
+    const mem = new Map<string, string>()
+    ;(globalThis as { localStorage?: unknown }).localStorage = {
+      getItem: (k: string) => mem.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        mem.set(k, v)
+      },
+      removeItem: (k: string) => {
+        mem.delete(k)
+      },
+      clear: () => mem.clear(),
+      key: (i: number) => [...mem.keys()][i] ?? null,
+      get length() {
+        return mem.size
+      },
+    }
+    ;(globalThis as { window?: unknown }).window = globalThis
+
+    const accounts = await import('../src/lib/accounts')
+    const { GUEST_OWNER_ID } = await import('../src/lib/storage')
+    // store 一加载就会读会话和分区（模块级的开机恢复），所以必须放在替身装好之后。
+    const store = await import('../src/lib/store')
+
+    ok('账号｜环境里有 WebCrypto', accounts.cryptoReady())
+    ok('账号｜用户名太短被拒', accounts.validateUsername('a') !== null)
+    ok('账号｜中文用户名可以', accounts.validateUsername('小明') === null)
+    ok('账号｜用户名里的空格被拒', accounts.validateUsername('ab cd') !== null)
+    ok('账号｜超长用户名被拒', accounts.validateUsername('a'.repeat(25)) !== null)
+    ok('账号｜不足 6 位的密码被拒', accounts.validatePassword('12345') !== null)
+    ok('账号｜6 位密码可以', accounts.validatePassword('123456') === null)
+    ok('账号｜全是空格的密码不算数', accounts.validatePassword('      ') !== null)
+
+    const weak = await accounts.register('小甲', '12345')
+    ok('账号｜弱密码注册被拦下', !weak.ok && weak.error === `密码至少 ${accounts.PASSWORD_MIN} 位`)
+
+    const made = await accounts.register('小甲', 'hunter2')
+    ok('账号｜注册成功', made.ok)
+    const accA = made.ok ? made.account : null
+    ok('账号｜存的是盐+哈希，不是密码本身', !!accA && accA.hash !== 'hunter2' && accA.salt.length > 0 && accA.hash.length > 0)
+    ok('账号｜落盘的账号表里搜不到明文密码', ![...mem.values()].some((v) => v.includes('hunter2')))
+    // 同一个密码、不同的盐 —— 哈希因此不同，光看账号表也认不出"这两个人用了同一个密码"。
+    const made2 = await accounts.register('小乙', 'hunter2')
+    ok('账号｜同一个密码也配不同的盐', made2.ok && made2.account.hash !== accA?.hash)
+    const dup = await accounts.register(' 小甲 ', 'other1')
+    ok('账号｜重名（含大小写空格）被拒', !dup.ok && dup.error === '这个用户名已经注册过了，直接登录就行')
+    const wrongPw = await accounts.login('小甲', 'hunter3')
+    ok('账号｜错密码登不进去', !wrongPw.ok && wrongPw.error === '用户名或密码不对')
+    const rightPw = await accounts.login('  小甲  ', 'hunter2')
+    ok('账号｜对密码（前后带空格）能登进去', rightPw.ok && rightPw.account.id === accA?.id)
+
+    accounts.writeSession(accA!)
+    ok('会话｜写进去能读回来', accounts.readSession()?.ownerId === accA?.id)
+    accounts.clearSession()
+    ok('会话｜清掉之后读不到', accounts.readSession() === null)
+
+    /* —— 用 store 走一遍用户看得见的流程：访客建应用 → 注册并搬过去 → 退出 → 再登录 —— */
+
+    const guestApp = store.createProject('访客的应用')
+    store.addMessage(guestApp.id, { role: 'user', content: '做一个待办清单' })
+    store.addVersion(guestApp.id, {
+      label: '待办清单',
+      html: '<!doctype html><html><body><h1>1</h1></body></html>',
+      prompt: '做一个待办清单',
+      createdAt: Date.now(),
+      durationMs: 1200,
+      source: 'demo',
+    })
+    store.flush()
+    ok('访客｜应用带着聊天和版本', store.getState().projects.length === 1 && store.getState().projects[0]!.versions.length === 1)
+
+    const joined = await store.register('小明', 'hunter2', { importGuest: true })
+    ok('注册｜账号建成并切了过去', joined.ok && store.getState().account !== null)
+    ok('注册｜如实报出搬了几个应用', joined.movedProjects === 1)
+    const ownerId = store.getState().ownerId
+    ok('注册｜访客的应用出现在账号下', store.getState().projects.length === 1)
+    ok('注册｜访客分区不再留副本（是"搬"不是"复制"）', !mem.has('forge:projects'))
+    ok('注册｜账号用的是带 id 的 key', mem.has(`forge:projects:${ownerId}`) && mem.has(`forge:settings:${ownerId}`))
+
+    const appId = store.getState().projects[0]!.id
+    store.addVersion(appId, {
+      label: '加搜索框',
+      html: '<!doctype html><html><body><h1>2</h1></body></html>',
+      prompt: '加一个搜索框',
+      createdAt: Date.now(),
+      durationMs: 900,
+      source: 'llm',
+    })
+    store.flush()
+
+    /*
+     * 这两步是整段里最要紧的：改名走的是 250ms 延时落盘，紧接着就退出登录切分区。
+     * 如果切换时没有先把挂起的改动 flush 回原 owner，这次改名会写进**访客**的分区 ——
+     * 旧账号少了最后一次操作，访客分区里多出一条不属于它的应用，而且刷新之后才看得出来。
+     */
+    store.renameProject(appId, '改名后的应用')
+    store.logout()
+    ok('退出｜回到访客模式', store.getState().ownerId === GUEST_OWNER_ID && store.getState().account === null)
+    ok('退出｜访客看不到账号里的应用', store.getState().projects.length === 0)
+    ok('退出｜切分区前挂起的改动没有串进访客分区', !mem.has('forge:projects'))
+    ok('退出｜会话已清掉', accounts.readSession() === null)
+
+    const failedLogin = await store.login('小明', 'hunter3')
+    ok('登录｜错密码进不去', !failedLogin.ok)
+    ok('登录｜失败之后仍是访客，没被切成别人的数据', store.getState().ownerId === GUEST_OWNER_ID)
+
+    const relogin = await store.login('  小明  ', 'hunter2')
+    ok('登录｜退出再登录能进来', relogin.ok)
+    const mine = store.getState().projects
+    ok('登录｜自己的应用回来了', mine.length === 1 && mine[0]!.id === appId)
+    ok('登录｜挂起的那次改名也保住了', mine[0]!.name === '改名后的应用')
+    ok('登录｜聊天记录还在', mine[0]!.messages.some((m) => m.role === 'user' && m.content === '做一个待办清单'))
+    ok('登录｜两轮代码版本都在', mine[0]!.versions.length === 2 && mine[0]!.versions[1]!.html.includes('<h1>2</h1>'))
+
+    store.logout()
+    const other = await store.register('小红', 'hunter2')
+    ok('新账号｜有自己的空分区', other.ok && store.getState().projects.length === 0)
+    ok('新账号｜账号表里几个账号都在', accounts.listAccounts().length === 4)
+
+    store.logout()
+    await store.login('小明', 'hunter2')
+    store.removeAccount(ownerId)
+    ok('删账号｜账号记录没了', accounts.findAccountById(ownerId) === null)
+    ok('删账号｜名下的应用数据一起删掉', !mem.has(`forge:projects:${ownerId}`))
+    ok('删账号｜退回访客模式', store.getState().ownerId === GUEST_OWNER_ID)
+    ok('删账号｜登录会话也清了', accounts.readSession() === null)
+    ok('删账号｜别的账号照旧能登', (await store.login('小红', 'hunter2')).ok)
+
+    store.resetEverything()
+    ok('清空本地数据｜账号表清空', accounts.listAccounts().length === 0)
+    ok('清空本地数据｜会话清空', accounts.readSession() === null)
+    ok('清空本地数据｜forge: 开头的 key 一个不剩', ![...mem.keys()].some((k) => k.startsWith('forge:')))
+
+    /*
+     * 没有 WebCrypto 的环境（http 打开的非本机地址就是这样）必须拒绝建账号、并说清原因，
+     * 而不是"降级"成明文存密码。这里把 crypto 临时抠掉来验这条分支真的走得到。
+     */
+    const realCrypto = globalThis.crypto
+    Object.defineProperty(globalThis, 'crypto', { value: {}, configurable: true })
+    ok('降级｜没有 WebCrypto 时不算就绪', !accounts.cryptoReady())
+    const blocked = await accounts.register('小刚', 'hunter2')
+    ok('降级｜没有 WebCrypto 时拒绝注册', !blocked.ok && blocked.error === accounts.CRYPTO_UNAVAILABLE)
+    ok('降级｜被拒时账号表里什么都没写', accounts.listAccounts().length === 0)
+    Object.defineProperty(globalThis, 'crypto', { value: realCrypto, configurable: true })
+    ok('降级｜环境恢复后仍可注册', accounts.cryptoReady() && (await accounts.register('小刚', 'hunter2')).ok)
   }
 
   const total = passed + failures.length

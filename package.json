@@ -18,7 +18,8 @@
     "smoke:single": "esbuild scripts/standalone.ts --bundle --platform=node --format=esm --target=node20 --log-level=warning --outfile=.tmp/mk-standalone.mjs && node .tmp/mk-standalone.mjs",
     "smoke:dist": "esbuild scripts/serve-check.ts --bundle --platform=node --format=esm --target=node20 --log-level=warning --outfile=.tmp/serve-check.mjs && node .tmp/serve-check.mjs",
     "smoke:runlog": "esbuild scripts/runlog-check.ts --bundle --platform=node --format=esm --target=node20 --log-level=warning --outfile=.tmp/runlog-check.mjs && node .tmp/runlog-check.mjs",
-    "verify": "npm run typecheck && npm run smoke && npm run smoke:hosted && npm run smoke:hosted-client && vite build && npm run smoke:dom && npm run smoke:dist && npm run smoke:runlog && npm run smoke:single"
+    "smoke:account": "esbuild scripts/account-check.ts --bundle --platform=node --format=esm --target=node20 --log-level=warning --outfile=.tmp/account-check.mjs && node .tmp/account-check.mjs",
+    "verify": "npm run typecheck && npm run smoke && npm run smoke:hosted && npm run smoke:hosted-client && vite build && npm run smoke:dom && npm run smoke:dist && npm run smoke:runlog && npm run smoke:account && npm run smoke:single"
   },
   "dependencies": {
     "react": "^18.3.1",

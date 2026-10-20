@@ -11,14 +11,25 @@ import { DEFAULT_QUERY, filterProjects, type ProjectQuery } from '../lib/project
 import { go } from '../lib/router'
 import { timeAgo } from '../lib/format'
 import { toast } from '../lib/toast'
-import { IconLayers, IconPlus, IconSearch, IconSettings, IconStar, IconTrash, IconCopy } from './Icons'
+import {
+  IconChevron,
+  IconCopy,
+  IconLayers,
+  IconPlus,
+  IconSearch,
+  IconSettings,
+  IconStar,
+  IconTrash,
+  IconUser,
+} from './Icons'
 
 interface SidebarProps {
   activeProjectId: string | null
+  onOpenAuth: () => void
 }
 
-export default function Sidebar({ activeProjectId }: SidebarProps) {
-  const { projects, settings, persistError } = useStore()
+export default function Sidebar({ activeProjectId, onOpenAuth }: SidebarProps) {
+  const { projects, settings, persistError, account } = useStore()
   // 侧边栏只用到"关键词 + 收藏"两档，其余筛选（引擎、排序）属于首页网格；
   // 判定逻辑和首页共用 filterProjects，两处的搜索结果不会再对不上。
   const [query, setQuery] = useState<ProjectQuery>(DEFAULT_QUERY)
@@ -51,6 +62,19 @@ export default function Sidebar({ activeProjectId }: SidebarProps) {
           新建应用
         </button>
       </div>
+
+      {/*
+        账号入口放在最显眼的位置（品牌下面）：未登录时它就是"注册/登录"的唯一入口，
+        登录后它变成一个人名标签，点开能退出或切换账号。
+      */}
+      <button className={`side-account ${account ? 'on' : ''}`} onClick={onOpenAuth} type="button">
+        <IconUser size={14} />
+        <span>
+          <strong>{account ? account.displayName : '访客模式'}</strong>
+          <em>{account ? '本机账号 · 点开可退出' : '登录后应用归属账号'}</em>
+        </span>
+        <IconChevron size={13} className="side-account-chevron" />
+      </button>
 
       <div className="side-search">
         <IconSearch size={14} />
