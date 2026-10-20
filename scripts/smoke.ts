@@ -21,7 +21,8 @@ import { decodeShare, encodeShare } from '../src/lib/share'
 import { buildGeneratePrompt, buildIteratePrompt, SYSTEM_PROMPT } from '../src/lib/prompt'
 import { DEFAULT_QUERY, currentVersionOf, engineOf, filterProjects, isFiltering } from '../src/lib/projects'
 import { decideStationSwitch } from '../src/lib/station'
-import type { AppVersion, ChatMessage, GenSource, Project, SharePayload } from '../src/types'
+import { buildRun, finalizeSteps, ranStepCount } from '../src/lib/run'
+import type { AppVersion, ChatMessage, GenSource, GenStepState, Project, SharePayload } from '../src/types'
 
 let passed = 0
 const failures: string[] = []
@@ -448,6 +449,162 @@ async function main(): Promise<void> {
       '内置｜退回不看 providerChosen（它是修错，不是偏好）',
       decideStationSwitch({ activeProviderId: 'station', providerChosen: false }, false).kind === 'fallback',
     )
+  }
+
+  console.log('— 附加：生成执行记录的存档 —')
+  {
+    /*
+     * run.ts 是"把生成过程一起保存"的纯函数部分：当场跑完的步骤 → 可存档的终态。
+     * 它不碰 DOM / 网络，放这里当硬关卡 —— 每次提交都能验。
+     */
+    const t0 = 1_700_000_000_000
+    const done = (title: string): GenStepState => ({
+      title,
+      detail: '',
+      weight: 1,
+      status: 'done',
+      startedAt: t0 + 100,
+      finishedAt: t0 + 900,
+    })
+    const running = (title: string): GenStepState => ({
+      title,
+      detail: '',
+      weight: 1,
+      status: 'running',
+      startedAt: t0 + 100,
+    })
+    const pending = (title: string): GenStepState => ({
+      title,
+      detail: '',
+      weight: 1,
+      status: 'pending',
+    })
+
+    const allDone = [done('一'), done('二'), done('三')]
+    ok('终态｜成功路径原样保留全部 done', finalizeSteps(allDone, 'done').every((s) => s.status === 'done'))
+    ok('终态｜成功路径不改动步骤对象', finalizeSteps(allDone, 'done') === allDone)
+
+    const stopped = [done('一'), running('二'), pending('三')]
+    const stoppedF = finalizeSteps(stopped, 'stopped')
+    ok('停止｜正在跑的步骤如实收回 pending', stoppedF[1]!.status === 'pending')
+    ok('停止｜已完成的步骤不受影响', stoppedF[0]!.status === 'done')
+    ok('停止｜没轮到的步骤保持 pending', stoppedF[2]!.status === 'pending')
+
+    const record = buildRun({
+      source: 'demo',
+      status: 'stopped',
+      prompt: '做一个待办清单',
+      startedAt: t0,
+      steps: stopped,
+      error: '手动停止',
+    })
+    ok('记录｜起止与耗时自洽', record.finishedAt - record.startedAt === record.durationMs)
+    ok('记录｜出错原因带上了', record.error === '手动停止')
+    ok('记录｜来源标注正确', record.source === 'demo' && record.status === 'stopped')
+
+    const runDone = buildRun({
+      source: 'llm',
+      status: 'done',
+      prompt: '加一个搜索框',
+      startedAt: t0,
+      finishedAt: t0 + 5000,
+      steps: [done('一'), done('二')],
+      autoFixed: true,
+    })
+    ok('记录｜成功的耗时来自显式结束点', runDone.durationMs === 5000)
+    ok('记录｜自动修复标记带上', runDone.autoFixed === true)
+    ok('记录｜成功记录步骤不被改写', runDone.steps.every((s) => s.status === 'done'))
+
+    ok('步数｜done/error 算执行到', ranStepCount([done('a'), { ...pending('b'), status: 'error' }, pending('c')]) === 2)
+    ok('步数｜全程都没跑到 = 0', ranStepCount([pending('a'), pending('b')]) === 0)
+  }
+
+  console.log('— 附加：执行记录随项目持久化往返 —')
+  {
+    /*
+     * "刷新后还能回看"的最后一环是 localStorage 往返：记录挂在版本/消息上之后，
+     * 存下去再读回来，步骤、状态、耗时必须原样保留。这里用内存 localStorage 替身模拟刷新。
+     */
+    const mem = new Map<string, string>()
+    ;(globalThis as { localStorage?: unknown }).localStorage = {
+      getItem: (k: string) => mem.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        mem.set(k, v)
+      },
+      removeItem: (k: string) => {
+        mem.delete(k)
+      },
+      clear: () => mem.clear(),
+      key: (i: number) => [...mem.keys()][i] ?? null,
+      length: 0,
+    }
+
+    const { saveProjects, loadProjects } = await import('../src/lib/storage')
+
+    const t0 = 1_700_000_000_000
+    const doneStep = (title: string): GenStepState => ({
+      title,
+      detail: `完成 ${title}`,
+      weight: 1,
+      status: 'done',
+      startedAt: t0 + 100,
+      finishedAt: t0 + 800,
+    })
+    const runOk = buildRun({
+      source: 'llm',
+      status: 'done',
+      prompt: '做一个待办清单',
+      startedAt: t0,
+      finishedAt: t0 + 5000,
+      steps: [doneStep('解析需求'), doneStep('调用模型生成')],
+    })
+    const runBad = buildRun({
+      source: 'demo',
+      status: 'error',
+      prompt: '做一个看板',
+      startedAt: t0,
+      steps: [doneStep('解析需求'), { title: '调用模型生成', detail: '', weight: 3, status: 'error' }, { title: '抽取产物', detail: '', weight: 0.6, status: 'pending' }],
+      error: '模型没有返回可用的 HTML。',
+    })
+
+    const withRun: Project = {
+      id: 'p-roundtrip',
+      name: '往返测试',
+      createdAt: t0,
+      updatedAt: t0,
+      starred: false,
+      currentVersionId: 'v-1',
+      messages: [
+        { id: 'm-user', role: 'user', content: '做一个待办清单', createdAt: t0 },
+        { id: 'm-ok', role: 'assistant', content: '已生成 v1', createdAt: t0 + 100, versionId: 'v-1', run: runOk },
+        { id: 'm-bad', role: 'assistant', content: '生成失败', createdAt: t0 + 200, run: runBad },
+      ],
+      versions: [
+        {
+          id: 'v-1',
+          index: 1,
+          label: '待办清单',
+          html: '<!doctype html><html><body>ok</body></html>',
+          prompt: '做一个待办清单',
+          createdAt: t0,
+          durationMs: 5000,
+          source: 'llm',
+          run: runOk,
+        },
+      ],
+    }
+
+    ok('往返｜写入成功', saveProjects([withRun]))
+    const reloaded = loadProjects()
+    const rp = reloaded.find((p) => p.id === 'p-roundtrip')
+    ok('往返｜刷新后项目还在', !!rp)
+    ok('往返｜成功记录跟着版本回来', rp?.versions[0]?.run?.status === 'done')
+    ok('往返｜成功记录步骤完整还原', rp?.versions[0]?.run?.steps.length === 2 && rp.versions[0].run.steps.every((s) => s.status === 'done'))
+    ok('往返｜成功记录耗时一致', rp?.versions[0]?.run?.durationMs === 5000)
+    ok('往返｜失败记录跟着消息回来', rp?.messages.find((m) => m.id === 'm-bad')?.run?.status === 'error')
+    const badSteps = rp?.messages.find((m) => m.id === 'm-bad')?.run?.steps
+    ok('往返｜失败的步骤终态如实（error + 未执行的 pending）', badSteps?.[1]?.status === 'error' && badSteps?.[2]?.status === 'pending')
+    ok('往返｜错误原因一起还原', rp?.messages.find((m) => m.id === 'm-bad')?.run?.error === '模型没有返回可用的 HTML。')
   }
 
   const total = passed + failures.length

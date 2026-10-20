@@ -2,6 +2,42 @@ import type { GenStepState } from '../types'
 import { formatDuration } from '../lib/format'
 import { IconCheck, IconClose, IconSpark } from './Icons'
 
+/**
+ * 步骤列表的纯展示部分。执行中的 StepLog 和存档的 RunRecord 共用这一份渲染，
+ * 保证"当场看到的"和"刷新后回看的"长一个样。
+ */
+export function StepList({ steps }: { steps: GenStepState[] }) {
+  return (
+    <ol className="steplog-list">
+      {steps.map((s, i) => {
+        const ms = s.startedAt ? (s.finishedAt ?? Date.now()) - s.startedAt : 0
+        return (
+          <li key={`${s.title}-${i}`} className={`step step-${s.status}`}>
+            <span className="step-mark">
+              {s.status === 'done' ? (
+                <IconCheck size={12} />
+              ) : s.status === 'error' ? (
+                <IconClose size={12} />
+              ) : s.status === 'running' ? (
+                <IconSpark size={12} />
+              ) : (
+                i + 1
+              )}
+            </span>
+            <div className="step-body">
+              <div className="step-title">
+                {s.title}
+                {s.status === 'done' && ms > 0 ? <em>{formatDuration(ms)}</em> : null}
+              </div>
+              {s.detail ? <p className="step-detail">{s.detail}</p> : null}
+            </div>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
 interface StepLogProps {
   steps: GenStepState[]
   running: boolean
@@ -26,25 +62,7 @@ export default function StepLog({ steps, running, streamText, totalMs }: StepLog
       {steps.length === 0 ? (
         <p className="steplog-hint">描述你想要的页面，这里会逐步显示每一步真实做了什么。</p>
       ) : (
-        <ol className="steplog-list">
-          {steps.map((s, i) => {
-            const ms = s.startedAt ? (s.finishedAt ?? Date.now()) - s.startedAt : 0
-            return (
-              <li key={`${s.title}-${i}`} className={`step step-${s.status}`}>
-                <span className="step-mark">
-                  {s.status === 'done' ? <IconCheck size={12} /> : s.status === 'error' ? <IconClose size={12} /> : s.status === 'running' ? <IconSpark size={12} /> : i + 1}
-                </span>
-                <div className="step-body">
-                  <div className="step-title">
-                    {s.title}
-                    {s.status === 'done' && ms > 0 ? <em>{formatDuration(ms)}</em> : null}
-                  </div>
-                  {s.detail ? <p className="step-detail">{s.detail}</p> : null}
-                </div>
-              </li>
-            )
-          })}
-        </ol>
+        <StepList steps={steps} />
       )}
 
       {running && streamText ? (

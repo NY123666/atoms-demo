@@ -9,6 +9,8 @@ export interface ChatMessage {
   createdAt: number
   /** 助手消息可以关联到某一版产物 */
   versionId?: string
+  /** 这次生成/修改的执行记录（失败或停止时挂在消息上，成功时同时挂在版本上） */
+  run?: GenRun
 }
 
 /** 生成来源：demo = 内置模板引擎（无需 Key），llm = 用户自带的模型服务 */
@@ -33,6 +35,29 @@ export interface AppVersion {
   /** 生成时的落点说明，比如命中了哪个模板、做了什么替换 */
   note?: string
   /** 由自动修复产生 */
+  autoFixed?: boolean
+  /** 这版产物的完整执行记录（生成时留存，见 run.ts） */
+  run?: GenRun
+}
+
+/**
+ * 一次生成/修改的完整执行记录，随产物版本一起存档。
+ * 刷新或重新打开项目后，聊天里仍能展开回看每一步做了什么、花了多久。
+ */
+export interface GenRun {
+  source: GenSource
+  /** done = 成功出存档；error = 失败；stopped = 手动停止 */
+  status: 'done' | 'error' | 'stopped'
+  /** 触发本次生成的用户输入 */
+  prompt: string
+  startedAt: number
+  finishedAt: number
+  /** 全程耗时（毫秒） */
+  durationMs: number
+  /** 各步骤的终态；未跑到的步骤如实标为 pending */
+  steps: GenStepState[]
+  /** 失败/停止原因（status 非 done 时给到） */
+  error?: string
   autoFixed?: boolean
 }
 

@@ -59,6 +59,7 @@ export const IconShare = (p: IconProps) =>
     p,
   )
 export const IconBack = (p: IconProps) => svg(<path d="M15 5l-7 7 7 7" />, p)
+export const IconChevron = (p: IconProps) => svg(<path d="M6 9l6 6 6-6" />, p)
 export const IconRefresh = (p: IconProps) =>
   svg(<path d="M20 11a8 8 0 10-2.3 5.7M20 4v7h-7" />, p)
 export const IconCode = (p: IconProps) => svg(<path d="M9 18l-6-6 6-6M15 6l6 6-6 6" />, p)

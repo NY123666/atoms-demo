@@ -1,6 +1,7 @@
 import type { GenStepState, Project } from '../types'
 import Composer from './Composer'
 import StepLog from './StepLog'
+import RunRecord from './RunRecord'
 import { formatDateTime } from '../lib/format'
 import type { EnhanceOverview } from '../lib/enhance'
 import { IconHistory, IconSpark } from './Icons'
@@ -95,7 +96,9 @@ export default function ChatPanel({
               <div key={m.id} className="msg msg-assistant">
                 <div className="msg-bubble">
                   <p>{m.content}</p>
-                  {m.versionId ? (
+                  {m.run ? (
+                    <RunRecord run={m.run} versionId={m.versionId} onJumpVersion={onJumpVersion} />
+                  ) : m.versionId ? (
                     <button className="msg-action" onClick={() => onJumpVersion(m.versionId!)} type="button">
                       <IconHistory size={12} />
                       查看这一版产物

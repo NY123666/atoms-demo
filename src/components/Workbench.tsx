@@ -15,7 +15,8 @@ import { buildShareUrl, encodeShare, downloadHtml, SHARE_WARN_LENGTH } from '../
 import { toast } from '../lib/toast'
 import { checkRunnable } from '../lib/sandbox'
 import { analyzeEnhancements } from '../lib/enhance'
-import type { GenStepState, SharePayload } from '../types'
+import { buildRun } from '../lib/run'
+import type { GenRun, GenStepState, SharePayload } from '../types'
 import { IconBack, IconCode, IconDownload, IconHistory, IconPlay, IconShare, IconSpark } from './Icons'
 
 type Tab = 'preview' | 'code'
@@ -61,6 +62,8 @@ export default function Workbench({ projectId }: { projectId: string }) {
 
   const abortRef = useRef<AbortController | null>(null)
   const runningRef = useRef(false)
+  // 生成链路每次 onStep 都会发一份最新步骤，这里镜像一份，结束存档时用它落盘
+  const stepsRef = useRef<GenStepState[]>([])
   const autoRunRef = useRef(false)
   const projectRef = useRef(project)
   projectRef.current = project
@@ -121,6 +124,7 @@ export default function Workbench({ projectId }: { projectId: string }) {
 
     setDraft('')
     setSteps([])
+    stepsRef.current = []
     setStreamText('')
     setRuntimeError(null)
     setTotalMs(0)
@@ -131,6 +135,8 @@ export default function Workbench({ projectId }: { projectId: string }) {
     runningRef.current = true
     setRunning(true)
 
+    // 生成前定下这次走的是哪条链路，结束存档时好如实标注来源
+    const runSource: GenRun['source'] = settingsRef.current.activeProviderId === 'demo' ? 'demo' : 'llm'
     const startedAt = Date.now()
     const timer = window.setInterval(() => setTotalMs(Date.now() - startedAt), 200)
 
@@ -140,24 +146,57 @@ export default function Workbench({ projectId }: { projectId: string }) {
         previousHtml,
         revision: p.versions.length,
         settings: settingsRef.current,
-        onStep: setSteps,
+        onStep: (s) => {
+          stepsRef.current = s
+          setSteps(s)
+        },
         onDelta: setStreamText,
         signal: controller.signal,
       })
 
-      const saved = addVersion(projectId, { ...version, label: version.label || deriveTitle(promptText) })
+      const run = buildRun({
+        source: version.source,
+        status: 'done',
+        prompt: promptText,
+        startedAt,
+        finishedAt: Date.now(),
+        steps: stepsRef.current,
+        autoFixed: version.autoFixed,
+      })
+      const saved = addVersion(projectId, { ...version, label: version.label || deriveTitle(promptText), run })
       const index = saved?.index ?? p.versions.length + 1
       updateMessage(projectId, assistant.id, {
         content: buildSummary(version, index),
         versionId: saved?.id,
+        run,
       })
       toast(`已生成 v${index}`, 'success')
     } catch (err) {
       if (isAbort(err)) {
-        updateMessage(projectId, assistant.id, { content: '已手动停止本次生成。这一版没有存档，可以重新发起。' })
+        updateMessage(projectId, assistant.id, {
+          content: '已手动停止本次生成。这一版没有存档，可以重新发起。',
+          run: buildRun({
+            source: runSource,
+            status: 'stopped',
+            prompt: promptText,
+            startedAt,
+            steps: stepsRef.current,
+            error: '手动停止',
+          }),
+        })
       } else {
         const msg = errorText(err)
-        updateMessage(projectId, assistant.id, { content: `生成失败：${msg}` })
+        updateMessage(projectId, assistant.id, {
+          content: `生成失败：${msg}`,
+          run: buildRun({
+            source: runSource,
+            status: 'error',
+            prompt: promptText,
+            startedAt,
+            steps: stepsRef.current,
+            error: msg,
+          }),
+        })
         toast('生成失败，详情见对话', 'error', { duration: 6000 })
       }
     } finally {
